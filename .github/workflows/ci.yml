@@ -1,0 +1,113 @@
+name: CI
+
+# Charter action #21: "Stand up the repository, CI pipeline, branch
+# protection, linting, dependency scanning and secret scanning before the
+# first feature commit." This is that pipeline. It runs the same commands the
+# README documents as the manual demo steps, so there is exactly one source
+# of truth for "does this actually work" — not a hand-run checklist.
+#
+# `apps/api` and `apps/web` are npm workspaces of the repo root — there is one
+# hoisted node_modules and one root package-lock.json, so install happens once
+# at the repo root, not per-package.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: tessma
+          POSTGRES_PASSWORD: tessma
+          POSTGRES_DB: tessma
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U tessma"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://tessma:tessma@localhost:5432/tessma?schema=public
+      APP_DATABASE_URL: postgresql://tessma_app:tessma_app@localhost:5432/tessma?schema=public
+      JWT_SECRET: ci-test-secret-not-for-production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Dependency vulnerability scan (blocks on high/critical)
+        run: npm audit --audit-level=high --workspace=apps/api
+
+      - name: Generate Prisma client
+        working-directory: apps/api
+        run: npx prisma generate
+
+      - name: Apply migrations (real migration history, not schema-diff)
+        working-directory: apps/api
+        run: npx prisma migrate deploy
+
+      - name: Seed plan catalogue + demo tenant
+        working-directory: apps/api
+        run: npm run seed
+
+      - name: Apply row-level security
+        working-directory: apps/api
+        run: npm run db:rls
+
+      - name: Build (type-checks the whole project)
+        working-directory: apps/api
+        run: npm run build
+
+      - name: Unit tests — exact-decimal money calculation
+        working-directory: apps/api
+        run: npm test
+
+      - name: RBAC tests — allow AND deny paths
+        working-directory: apps/api
+        run: npm run test:rbac
+
+      - name: Cross-tenant isolation tests — DB-layer, HTTP-layer, append-only grants
+        working-directory: apps/api
+        run: npm run test:e2e
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Dependency vulnerability scan (blocks on high/critical)
+        run: npm audit --audit-level=high --workspace=apps/web
+
+      - name: Build
+        working-directory: apps/web
+        run: npm run build
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Scan for committed secrets (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

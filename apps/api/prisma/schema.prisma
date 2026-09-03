@@ -1,0 +1,308 @@
+// Tessma One — data model for the foundation slice.
+// Every business table carries tenantId and is protected by row-level security
+// (see prisma/rls.sql). Money is stored as integer minor units (pence) — never
+// floating point.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---- Core: partner tier --------------------------------------------------------
+// Charter §7.9: the partner entity, partner_id on tenant, and the branding
+// resolution chain must exist in the Phase 1 core even though no partner-facing
+// UI is built until Phase 3 — adding a hierarchy level after tenants hold live
+// financial data is a migration nobody wants to run. Partner itself is owned by
+// the Platform Operator, not by a tenant, so it carries no tenantId.
+
+model Partner {
+  id                   String   @id @default(uuid())
+  name                 String
+  brandName            String?
+  logoUrl              String?
+  primaryColor         String?
+  supportUrl           String?
+  senderDomain         String?
+  senderDomainVerified Boolean  @default(false)
+  createdAt            DateTime @default(now())
+
+  tenants              Tenant[]
+}
+
+// ---- Core: tenancy & identity -------------------------------------------------
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  // partnerId is here from day one even though partner features come later,
+  // because adding a hierarchy level after live financial data is a painful migration.
+  partnerId String?
+  createdAt DateTime @default(now())
+
+  partner      Partner?         @relation(fields: [partnerId], references: [id])
+  users        User[]
+  branding     TenantBranding?
+  subscription TenantSubscription?
+}
+
+// Tenant-level branding override — the top of the resolution chain
+// (tenant override -> partner theme -> platform default). See branding.service.ts.
+model TenantBranding {
+  tenantId    String  @id
+  productName String?
+  logoUrl     String?
+  primaryColor String?
+  supportUrl  String?
+
+  tenant      Tenant  @relation(fields: [tenantId], references: [id])
+}
+
+model User {
+  id           String   @id @default(uuid())
+  tenantId     String
+  email        String
+  passwordHash String
+  displayName  String
+  createdAt    DateTime @default(now())
+
+  tenant       Tenant     @relation(fields: [tenantId], references: [id])
+  roles        UserRole[]
+
+  // Email is globally unique, not just per tenant: this model gives each user
+  // exactly one tenant (User.tenantId is a single FK, not a membership table),
+  // so allowing the same email under two tenants let login's by-email lookup
+  // silently resolve to an arbitrary tenant. Fixed at the schema level, not
+  // just in application code, so it can't regress.
+  @@unique([email])
+  @@index([tenantId])
+}
+
+// ---- Core: RBAC ----------------------------------------------------------------
+// Permissions are strings shaped module.resource.action (see Engineering Standards).
+// Roles are data, not code; system roles are seeded and marked isSystem.
+
+model Role {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String                     // OWNER | FINANCE_MANAGER | ACCOUNTANT ...
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  permissions RolePermission[]
+  users       UserRole[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+model RolePermission {
+  id         String @id @default(uuid())
+  tenantId   String
+  roleId     String
+  permission String                       // e.g. "finance.invoice.issue"
+
+  role       Role   @relation(fields: [roleId], references: [id])
+
+  @@unique([tenantId, roleId, permission])
+  @@index([tenantId])
+}
+
+model UserRole {
+  id       String @id @default(uuid())
+  tenantId String
+  userId   String
+  roleId   String
+
+  user     User @relation(fields: [userId], references: [id])
+  role     Role @relation(fields: [roleId], references: [id])
+
+  @@unique([tenantId, userId, roleId])
+  @@index([tenantId])
+}
+
+// ---- Core: subscriptions & entitlements ----------------------------------------
+// Charter §6.4: tenants subscribe to plans; plans grant entitlements to modules
+// and features; entitlement is verified server-side on every gated request.
+// Plan/PlanFeature are a Platform-Operator-owned catalogue (no tenantId) —
+// analogous to Partner, they describe the platform, not one tenant's data.
+
+model Plan {
+  id       String  @id @default(uuid())
+  code     String  @unique // e.g. "TRIAL", "STARTER"
+  name     String
+
+  features     PlanFeature[]
+  subscriptions TenantSubscription[]
+}
+
+model PlanFeature {
+  id         String @id @default(uuid())
+  planId     String
+  featureKey String // e.g. "finance", "finance.ai.assistant"
+
+  plan       Plan   @relation(fields: [planId], references: [id])
+
+  @@unique([planId, featureKey])
+}
+
+model TenantSubscription {
+  tenantId  String   @id
+  planId    String
+  status    String   @default("TRIALING") // TRIALING | ACTIVE | CANCELLED
+  createdAt DateTime @default(now())
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  plan      Plan     @relation(fields: [planId], references: [id])
+}
+
+// ---- Core: shared Party master -----------------------------------------------
+// A customer/supplier/etc is a ROLE on a Party, not its own table.
+
+model Party {
+  id          String   @id @default(uuid())
+  tenantId    String
+  type        String   // COMPANY | INDIVIDUAL
+  legalName   String
+  vatNumber   String?
+  createdAt   DateTime @default(now())
+
+  customer    CustomerRole?
+  invoices    Invoice[]
+
+  @@index([tenantId])
+}
+
+model CustomerRole {
+  id            String  @id @default(uuid())
+  tenantId      String
+  partyId       String  @unique
+  paymentTerms  Int     @default(30) // days
+  creditLimit   BigInt  @default(0)  // pence
+
+  party         Party   @relation(fields: [partyId], references: [id])
+
+  @@index([tenantId])
+}
+
+// ---- Finance: products, chart of accounts, invoices, ledger ------------------
+
+model Product {
+  id            String  @id @default(uuid())
+  tenantId      String
+  sku           String
+  name          String
+  unitPrice     BigInt  // pence, VAT-exclusive
+  vatRatePct    Int     @default(20)
+  createdAt     DateTime @default(now())
+
+  @@unique([tenantId, sku])
+  @@index([tenantId])
+}
+
+model Account {
+  id        String @id @default(uuid())
+  tenantId  String
+  code      String // e.g. "1100" debtors, "4000" revenue, "2200" output VAT
+  name      String
+  type      String // ASSET | LIABILITY | INCOME | EXPENSE | EQUITY
+
+  entries   LedgerEntry[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+}
+
+model Invoice {
+  id            String   @id @default(uuid())
+  tenantId      String
+  partyId       String
+  number        String?  // allocated at ISSUE, not while DRAFT
+  status        String   @default("DRAFT") // DRAFT | ISSUED
+  issueDate     DateTime?
+  currency      String   @default("GBP")
+  netTotal      BigInt   @default(0) // pence
+  vatTotal      BigInt   @default(0)
+  grossTotal    BigInt   @default(0)
+  createdAt     DateTime @default(now())
+
+  party         Party        @relation(fields: [partyId], references: [id])
+  lines         InvoiceLine[]
+  ledgerEntries LedgerEntry[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId])
+}
+
+model InvoiceLine {
+  id          String @id @default(uuid())
+  tenantId    String
+  invoiceId   String
+  description String
+  quantity    Int
+  unitPrice   BigInt // pence
+  discountPct Int    @default(0)
+  vatRatePct  Int    @default(20)
+  net         BigInt // pence, computed
+  vat         BigInt
+  total       BigInt
+
+  invoice     Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([tenantId])
+}
+
+model LedgerEntry {
+  id          String   @id @default(uuid())
+  tenantId    String
+  accountId   String
+  invoiceId   String?
+  debit       BigInt   @default(0) // pence
+  credit      BigInt   @default(0)
+  narrative   String
+  postedAt    DateTime @default(now())
+
+  account     Account  @relation(fields: [accountId], references: [id])
+  invoice     Invoice? @relation(fields: [invoiceId], references: [id])
+
+  @@index([tenantId])
+}
+
+// ---- Core: audit -------------------------------------------------------------
+// Append-only by grant (see rls.sql: UPDATE/DELETE are revoked from the app
+// role on this table) — the database is the layer that survives an application
+// bug, per Charter §6.2 "defence in depth".
+
+model AuditEvent {
+  id            String   @id @default(uuid())
+  tenantId      String
+  userId        String?
+  // Charter §7.7 / FR-PTN-017: audit must distinguish a tenant user from a
+  // partner user under standing service access or under time-boxed support
+  // elevation. No partner-user actors exist yet in this slice (partner console
+  // is Phase 3), so this is always TENANT_USER today — but the column exists
+  // now so a future partner-access feature never needs a migration against
+  // live audit history.
+  actorType     String   @default("TENANT_USER") // TENANT_USER | PARTNER_STANDING | PARTNER_ELEVATION | SYSTEM
+  action        String   // e.g. "invoice.issued"
+  resourceType  String
+  resourceId    String
+  before        Json?
+  after         Json?
+  createdAt     DateTime @default(now())
+
+  @@index([tenantId])
+}
+
+// Per-tenant, per-type document number counter (safe under concurrency via
+// an atomic UPDATE ... RETURNING in code).
+model NumberSequence {
+  tenantId  String
+  docType   String
+  next      Int    @default(1)
+
+  @@id([tenantId, docType])
+}

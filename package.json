@@ -1,0 +1,8 @@
+{
+  "name": "tessma-one",
+  "private": true,
+  "workspaces": ["apps/api", "apps/web"],
+  "scripts": {
+    "dev": "echo 'Run: docker compose up --build   (or start apps/api and apps/web separately)'"
+  }
+}

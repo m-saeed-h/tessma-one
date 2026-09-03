@@ -1,0 +1,53 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: tessma
+      POSTGRES_PASSWORD: tessma
+      POSTGRES_DB: tessma
+    ports:
+      - "5432:5432"
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tessma"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./apps/api
+    env_file: .env
+    environment:
+      DATABASE_URL: "postgresql://tessma:tessma@db:5432/tessma?schema=public"
+      APP_DATABASE_URL: "postgresql://tessma_app:tessma_app@db:5432/tessma?schema=public"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "4000:4000"
+    # Real migration history (prisma/migrations), not schema-diffing — Charter
+    # rule 17 ("one database migration timeline"). `migrate deploy` is the
+    # non-interactive, CI/prod-safe form; `prisma migrate dev` refuses to run
+    # in a non-interactive container.
+    command: sh -c "npx prisma migrate deploy --schema prisma/schema.prisma && npm run seed && npx prisma db execute --file prisma/rls.sql --schema prisma/schema.prisma && npm run start:prod"
+
+  web:
+    build: ./apps/web
+    environment:
+      # Read by the BROWSER — must be reachable from the host, so it's the
+      # published port, not the compose service name.
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      # Read by the Next.js SERVER (layout.tsx's branding resolution) — must
+      # be reachable from inside the web container, so it's the compose
+      # service name. Deliberately NOT prefixed NEXT_PUBLIC_, so Next reads it
+      # fresh at request time rather than inlining it into the client bundle
+      # at build time (when the compose network doesn't exist yet).
+      API_INTERNAL_URL: http://api:4000
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+
+volumes:
+  dbdata:
