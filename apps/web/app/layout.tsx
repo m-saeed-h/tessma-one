@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import './globals.css';
 
 // A separate, non-NEXT_PUBLIC_ env var: this runs on the Next.js SERVER
 // (inside the container on the compose network), not the browser, so it
@@ -43,21 +44,31 @@ export async function generateMetadata() {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const branding = await resolveBranding();
+  // Charter §7.4: "CSS custom properties injected from the resolved theme at
+  // runtime" — one variable, set once here, read by every component in
+  // components/ui.tsx via var(--brand-primary). No per-partner CSS build.
+  const themeStyle = { '--brand-primary': branding.primaryColor } as React.CSSProperties;
+
   return (
-    <html lang="en">
-      <body style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 760, margin: '40px auto', padding: '0 16px', color: '#1f2733' }}>
-        <h2 style={{ color: branding.primaryColor }}>
-          {branding.logoUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={branding.logoUrl} alt="" height={24} style={{ verticalAlign: 'middle', marginRight: 8 }} />
-          )}
-          {branding.productName} <span style={{ color: '#d8b04a' }}>·</span> Finance
-        </h2>
-        <nav style={{ display: 'flex', gap: 16, marginBottom: 24, fontSize: 14 }}>
-          <a href="/login">Login</a>
-          <a href="/customers">Customers</a>
-          <a href="/invoices">Invoices</a>
-        </nav>
+    <html lang="en" style={themeStyle}>
+      <body className="mx-auto max-w-4xl px-4 py-10 font-sans text-slate-900">
+        <header className="mb-8 flex items-center justify-between">
+          <h1 className="flex items-center gap-2 text-xl font-semibold text-[var(--brand-primary)]">
+            {branding.logoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={branding.logoUrl} alt="" className="h-6" />
+            )}
+            {branding.productName}
+            <span className="text-slate-300">·</span>
+            <span className="text-base font-normal text-slate-500">Finance</span>
+          </h1>
+          <nav className="flex gap-5 text-sm font-medium text-slate-600">
+            <a href="/login" className="hover:text-[var(--brand-primary)]">Login</a>
+            <a href="/customers" className="hover:text-[var(--brand-primary)]">Customers</a>
+            <a href="/invoices" className="hover:text-[var(--brand-primary)]">Invoices</a>
+            <a href="/notifications" className="hover:text-[var(--brand-primary)]">Notifications</a>
+          </nav>
+        </header>
         {children}
       </body>
     </html>

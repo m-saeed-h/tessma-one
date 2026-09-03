@@ -2,13 +2,18 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { AuditService } from '../../core/audit/audit.service';
-import { computeLine } from '../../shared/money/money';
+import { NotificationsService } from '../../core/notifications/notifications.service';
+import { computeLine, penceToGBP } from '../../shared/money/money';
 
 interface LineInput { description: string; quantity: number; unitPrice: number; discountPct?: number; vatRatePct?: number; }
 
 @Injectable()
 export class FinanceService {
-  constructor(private prisma: PrismaService, private audit: AuditService) {}
+  constructor(
+    private prisma: PrismaService,
+    private audit: AuditService,
+    private notifications: NotificationsService,
+  ) {}
 
   // Create an editable DRAFT. No number is allocated yet, nothing is posted.
   async createDraft(tenantId: string, userId: string, partyId: string, lines: LineInput[]) {
@@ -76,6 +81,11 @@ export class FinanceService {
         tenantId, userId, action: 'invoice.issued', resourceType: 'Invoice',
         resourceId: invoiceId, before: { status: 'DRAFT' }, after: { status: 'ISSUED', number },
       });
+      await this.notifications.send(
+        tx, tenantId, userId, 'IN_APP',
+        `Invoice ${number} issued`,
+        `Invoice ${number} for ${penceToGBP(issued.grossTotal)} was issued and posted to the ledger.`,
+      );
       return issued;
     });
   }

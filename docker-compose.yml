@@ -15,15 +15,36 @@ services:
       timeout: 5s
       retries: 10
 
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: tessma
+      MINIO_ROOT_PASSWORD: tessma12345
+    ports:
+      - "9000:9000"   # S3 API — also what the browser follows presigned URLs to
+      - "9001:9001"   # web console (login: tessma / tessma12345)
+    volumes:
+      - miniodata:/data
+
   api:
     build: ./apps/api
     env_file: .env
     environment:
       DATABASE_URL: "postgresql://tessma:tessma@db:5432/tessma?schema=public"
       APP_DATABASE_URL: "postgresql://tessma_app:tessma_app@db:5432/tessma?schema=public"
+      # Internal (compose network) vs. public (host-published) — see
+      # S3Service's class comment for why both exist.
+      S3_ENDPOINT: "http://minio:9000"
+      S3_PUBLIC_ENDPOINT: "http://localhost:9000"
+      S3_ACCESS_KEY: "tessma"
+      S3_SECRET_KEY: "tessma12345"
+      S3_BUCKET: "tessma-documents"
     depends_on:
       db:
         condition: service_healthy
+      minio:
+        condition: service_started
     ports:
       - "4000:4000"
     # Real migration history (prisma/migrations), not schema-diffing — Charter
@@ -51,3 +72,4 @@ services:
 
 volumes:
   dbdata:
+  miniodata:

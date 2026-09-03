@@ -1,3 +1,16 @@
+import * as path from 'path';
+import * as dotenv from 'dotenv';
+
+// Only meaningful for local (non-Docker) dev: `.env` lives at the repo root,
+// two levels above apps/api, but Prisma's CLI is the only thing that
+// auto-loads it — the running Nest process never did, so JWT_SECRET/S3_*
+// silently fell back to their (dev-only) defaults or were undefined outside
+// Docker. `override: false` is dotenv's default: real environment variables
+// (as docker-compose sets them) always win over anything found here, and a
+// missing file (the normal case inside the container — .env isn't even in
+// the image's build context) is a silent no-op, not an error.
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+
 import { NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';

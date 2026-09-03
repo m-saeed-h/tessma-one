@@ -153,6 +153,11 @@ model TenantSubscription {
   tenantId  String   @id
   planId    String
   status    String   @default("TRIALING") // TRIALING | ACTIVE | CANCELLED
+  // AI safety rule 12: "A tenant administrator can disable AI features
+  // entirely, per module, without loss of core functionality." Per-module
+  // granularity is a Stage 3+ concern (there's only one AI-touching module
+  // so far); the tenant-wide switch is the Stage 1 primitive it builds on.
+  aiEnabled Boolean  @default(true)
   createdAt DateTime @default(now())
 
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
@@ -305,4 +310,134 @@ model NumberSequence {
   next      Int    @default(1)
 
   @@id([tenantId, docType])
+}
+
+// ---- Platform: documents -------------------------------------------------------
+// Charter §5.2 platform/documents: "object storage abstraction, metadata,
+// versions." The API never touches file bytes (SEC-APP-06 / Build Guide §5:
+// "never save files onto the server's own disk") — this row is metadata plus
+// a storage key; the bytes live in S3-compatible object storage (MinIO in
+// dev) behind short-lived signed URLs (documents.service.ts).
+
+model Document {
+  id               String   @id @default(uuid())
+  tenantId         String
+  resourceType     String   // what this file is attached to, e.g. "Invoice", "Expense"
+  resourceId       String
+  filename         String
+  mimeType         String
+  sizeBytes        BigInt   @default(0)
+  storageKey       String   @unique // namespaced by tenant within the bucket
+  checksum         String?  // sha256, recorded once the upload is confirmed
+  status           String   @default("PENDING") // PENDING | UPLOADED | REJECTED
+  // SEC-DAT-05: Public | Internal | Confidential | Restricted.
+  classification   String   @default("Internal")
+  uploadedByUserId String?
+  createdAt        DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([tenantId, resourceType, resourceId])
+}
+
+// ---- Platform: notifications ----------------------------------------------------
+// Charter §5.2 platform/notifications: "in-app, email, push, SMS channels."
+// Channel delivery is provider-abstracted (notifications.service.ts); only
+// in-app and a dev-mode email transport are wired to a real transport in this
+// slice, but every channel goes through the same interface and the same row
+// shape, so adding a real SMS/push provider later is a provider swap, not a
+// redesign.
+
+model Notification {
+  id        String    @id @default(uuid())
+  tenantId  String
+  userId    String
+  channel   String    // IN_APP | EMAIL | SMS | PUSH
+  subject   String
+  body      String
+  status    String    @default("SENT") // SENT | READ | FAILED
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+
+  @@index([tenantId])
+  @@index([tenantId, userId])
+}
+
+// ---- Platform: workflow / approvals ---------------------------------------------
+// Charter §5.2 platform/workflow: "reusable approval and state machine
+// engine." FR-APR-009: "Finance approvals shall be implemented on the shared
+// platform workflow engine and shall not be re-implemented within the
+// Finance module" — so this is deliberately generic (subjectType is a string
+// like "finance.expense", not a Finance-specific table), ready for Stage 2's
+// expense claims and payment runs to submit into without any change here.
+
+model ApprovalRule {
+  id          String   @id @default(uuid())
+  tenantId    String
+  subjectType String   // e.g. "finance.expense", "finance.payment_run"
+  minAmount   BigInt?  // pence; rule applies once subject amount >= this (null = always)
+  steps       Json     // [{ sequence: 1, approverRole: "FINANCE_MANAGER" }, ...]
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])
+  @@unique([tenantId, subjectType])
+}
+
+model ApprovalRequest {
+  id                String    @id @default(uuid())
+  tenantId          String
+  subjectType       String
+  subjectId         String
+  submittedByUserId String
+  amount            BigInt?
+  status            String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  currentStep       Int       @default(1)
+  createdAt         DateTime  @default(now())
+  decidedAt         DateTime?
+
+  decisions         ApprovalDecision[]
+
+  @@index([tenantId])
+  @@unique([tenantId, subjectType, subjectId])
+}
+
+// Append-only (see rls.sql): FR-APR-005 records approval/rejection with actor
+// and timestamp — a decision, once made, is not editable, the same principle
+// as an audit event.
+model ApprovalDecision {
+  id         String   @id @default(uuid())
+  tenantId   String
+  requestId  String
+  step       Int
+  approverId String
+  decision   String   // APPROVED | REJECTED
+  comment    String?
+  decidedAt  DateTime @default(now())
+
+  request    ApprovalRequest @relation(fields: [requestId], references: [id])
+
+  @@index([tenantId])
+}
+
+// ---- Platform: AI Gateway --------------------------------------------------------
+// Charter §9.1: every module calls the internal AI Gateway, never a provider
+// directly. AI safety rule 11: "Every agent action is logged with inputs,
+// model, prompt version, output, confidence and the resulting business
+// action" — this table is that log. The provider behind the gateway is
+// pluggable (ai-gateway.service.ts); Stage 1 ships a deterministic
+// no-network "null" provider so the plumbing (redaction, metering, audit,
+// the per-tenant kill switch) is provably correct without depending on an
+// external API key existing in every dev/CI environment.
+model AiUsageEvent {
+  id            String   @id @default(uuid())
+  tenantId      String
+  userId        String?
+  task          String   // e.g. "document_extraction", "collections_draft"
+  provider      String   // e.g. "null-dev", a real provider name later
+  promptVersion String
+  redacted      Boolean  @default(false)
+  confidence    Float?
+  createdAt     DateTime @default(now())
+
+  @@index([tenantId])
 }

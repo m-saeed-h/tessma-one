@@ -1,4 +1,5 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import type { Response } from 'express';
 
 // AP-08 "one error contract" / SEC-APP-09: every error response has the same
@@ -39,6 +40,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
         if (b.required !== undefined) details = { ...(typeof details === 'object' ? details : {}), required: b.required };
         if (b.featureKey !== undefined) details = { ...(typeof details === 'object' ? details : {}), featureKey: b.featureKey };
       }
+    } else if (exception instanceof Prisma.PrismaClientKnownRequestError && exception.code === 'P2025') {
+      // `findUniqueOrThrow`/`findFirstOrThrow` on a row that either doesn't
+      // exist or (far more often here) belongs to a different tenant and was
+      // filtered out by row-level security — both cases are indistinguishable
+      // from the caller's side and both mean "not found", not "server broke".
+      status = HttpStatus.NOT_FOUND;
+      code = 'not_found';
+      message = 'The requested resource was not found.';
     } else {
       // Unknown/unexpected error: log full detail server-side, tell the client nothing.
       this.logger.error(exception instanceof Error ? exception.stack : String(exception));

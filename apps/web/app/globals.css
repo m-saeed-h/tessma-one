@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Platform default — the last rung of the branding resolution chain
+   (tenant override -> partner theme -> platform default, Charter §7.4).
+   layout.tsx overrides --brand-primary inline with the resolved value once
+   a tenant/partner theme exists; this is only what renders before that. */
+:root {
+  --brand-primary: #0f2942;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+}

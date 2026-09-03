@@ -5,12 +5,8 @@ import { RequireEntitlement } from '../../core/subscriptions/entitlements.decora
 import { FEATURE_KEYS } from '../../core/subscriptions/entitlements.registry';
 import { validate } from '../../shared/validation/validate';
 import { createInvoiceDraftSchema } from '../../shared/validation/schemas';
+import { serialise } from '../../shared/http/serialise';
 import { FinanceService } from './finance.service';
-
-// Serialise BigInt (pence) to string so JSON is lossless.
-function serialise(obj: any): any {
-  return JSON.parse(JSON.stringify(obj, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)));
-}
 
 @Controller('invoices')
 @RequireEntitlement(FEATURE_KEYS.FINANCE)

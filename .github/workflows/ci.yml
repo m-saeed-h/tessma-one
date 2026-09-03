@@ -35,6 +35,11 @@ jobs:
       DATABASE_URL: postgresql://tessma:tessma@localhost:5432/tessma?schema=public
       APP_DATABASE_URL: postgresql://tessma_app:tessma_app@localhost:5432/tessma?schema=public
       JWT_SECRET: ci-test-secret-not-for-production
+      S3_ENDPOINT: http://localhost:9000
+      S3_PUBLIC_ENDPOINT: http://localhost:9000
+      S3_ACCESS_KEY: tessma
+      S3_SECRET_KEY: tessma12345
+      S3_BUCKET: tessma-documents
     steps:
       - uses: actions/checkout@v4
 
@@ -48,6 +53,19 @@ jobs:
 
       - name: Dependency vulnerability scan (blocks on high/critical)
         run: npm audit --audit-level=high --workspace=apps/api
+
+      # `services:` can't pass MinIO's required command args (`server /data`),
+      # so it's started as a plain container instead — same as every other
+      # infra piece in this pipeline mirrors docker-compose.yml.
+      - name: Start MinIO (object storage for the documents service)
+        run: |
+          docker run -d --name minio -p 9000:9000 -p 9001:9001 \
+            -e MINIO_ROOT_USER=tessma -e MINIO_ROOT_PASSWORD=tessma12345 \
+            minio/minio server /data --console-address ":9001"
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:9000/minio/health/live && break
+            sleep 1
+          done
 
       - name: Generate Prisma client
         working-directory: apps/api
