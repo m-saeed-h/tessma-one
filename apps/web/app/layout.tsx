@@ -1,5 +1,11 @@
 import { cookies } from 'next/headers';
+import { IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google';
 import './globals.css';
+import { darken, tint } from '../lib/color';
+import { AppShell, Main, NavItem, NavSection, Sidebar, Topbar, Work } from '../components/shell';
+
+const plexSans = IBM_Plex_Sans({ subsets: ['latin'], weight: ['400', '500', '600', '700'], variable: '--font-plex-sans' });
+const plexMono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-plex-mono' });
 
 // A separate, non-NEXT_PUBLIC_ env var: this runs on the Next.js SERVER
 // (inside the container on the compose network), not the browser, so it
@@ -16,62 +22,82 @@ const API_BASE = process.env.API_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL
 // this scaffold yet, and is what renders before login / if the call fails.
 const PLATFORM_DEFAULT = {
   productName: 'Tessma One',
-  primaryColor: '#0f2942',
+  primaryColor: '#175E7A',
+  accentColor: '#B4832A',
   logoUrl: null as string | null,
 };
 
-async function resolveBranding() {
-  const token = cookies().get('tsm_at')?.value;
-  if (!token) return PLATFORM_DEFAULT;
+async function fetchFromApi(path: string, token: string | undefined) {
+  if (!token) return null;
   try {
     // Server-to-server fetch (Next's server, not the browser) — not subject
     // to the API's CORS policy, so the auth cookie is forwarded directly.
-    const res = await fetch(`${API_BASE}/branding`, {
-      headers: { cookie: `tsm_at=${token}` },
-      cache: 'no-store',
-    });
-    if (!res.ok) return PLATFORM_DEFAULT;
+    const res = await fetch(`${API_BASE}${path}`, { headers: { cookie: `tsm_at=${token}` }, cache: 'no-store' });
+    if (!res.ok) return null;
     return await res.json();
   } catch {
-    return PLATFORM_DEFAULT;
+    return null;
   }
 }
 
+async function resolveBranding(token: string | undefined) {
+  return (await fetchFromApi('/branding', token)) ?? PLATFORM_DEFAULT;
+}
+
+async function resolveMe(token: string | undefined) {
+  return await fetchFromApi('/auth/me', token) as { email: string; displayName: string; tenantName: string } | null;
+}
+
 export async function generateMetadata() {
-  const branding = await resolveBranding();
+  const token = cookies().get('tsm_at')?.value;
+  const branding = await resolveBranding(token);
   return { title: `${branding.productName} · Finance` };
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const branding = await resolveBranding();
-  // Charter §7.4: "CSS custom properties injected from the resolved theme at
-  // runtime" — one variable, set once here, read by every component in
-  // components/ui.tsx via var(--brand-primary). No per-partner CSS build.
-  const themeStyle = { '--brand-primary': branding.primaryColor } as React.CSSProperties;
+  const token = cookies().get('tsm_at')?.value;
+  const [branding, me] = await Promise.all([resolveBranding(token), resolveMe(token)]);
+
+  // Design system rule: white-label swaps --primary/--accent only. Everything
+  // else (--primary-ink, --primary-wash, --accent-wash) is derived from those
+  // two here, at render time, rather than being four more stored fields.
+  const themeStyle = {
+    '--primary': branding.primaryColor,
+    '--primary-ink': darken(branding.primaryColor, 0.25),
+    '--primary-wash': tint(branding.primaryColor, 0.9),
+    '--accent': branding.accentColor,
+    '--accent-wash': tint(branding.accentColor, 0.9),
+  } as React.CSSProperties;
+
+  const initials = me
+    ? me.displayName.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()
+    : '—';
 
   return (
-    <html lang="en" style={themeStyle}>
-      <body className="mx-auto max-w-4xl px-4 py-10 font-sans text-slate-900">
-        <header className="mb-8 flex items-center justify-between">
-          <h1 className="flex items-center gap-2 text-xl font-semibold text-[var(--brand-primary)]">
-            {branding.logoUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={branding.logoUrl} alt="" className="h-6" />
-            )}
-            {branding.productName}
-            <span className="text-slate-300">·</span>
-            <span className="text-base font-normal text-slate-500">Finance</span>
-          </h1>
-          <nav className="flex gap-5 text-sm font-medium text-slate-600">
-            <a href="/login" className="hover:text-[var(--brand-primary)]">Login</a>
-            <a href="/customers" className="hover:text-[var(--brand-primary)]">Customers</a>
-            <a href="/suppliers" className="hover:text-[var(--brand-primary)]">Suppliers</a>
-            <a href="/products" className="hover:text-[var(--brand-primary)]">Products</a>
-            <a href="/invoices" className="hover:text-[var(--brand-primary)]">Invoices</a>
-            <a href="/notifications" className="hover:text-[var(--brand-primary)]">Notifications</a>
-          </nav>
-        </header>
-        {children}
+    <html lang="en" style={themeStyle} className={`${plexSans.variable} ${plexMono.variable}`}>
+      <body>
+        <AppShell>
+          <Sidebar productName={branding.productName} logoUrl={branding.logoUrl}>
+            <NavItem href="/">Dashboard</NavItem>
+            <NavSection>Finance</NavSection>
+            <NavItem href="/invoices">Invoices</NavItem>
+            <NavItem href="/customers">Customers</NavItem>
+            <NavItem href="/suppliers">Suppliers</NavItem>
+            <NavItem href="/products">Products</NavItem>
+            <NavItem locked>Bills &amp; expenses</NavItem>
+            <NavItem locked>Banking</NavItem>
+            <NavItem locked>VAT</NavItem>
+            <NavItem href="/notifications">Notifications</NavItem>
+            <NavSection>Platform</NavSection>
+            <NavItem locked>CRM</NavItem>
+            <NavItem locked>Projects</NavItem>
+            <NavItem href="/login">{me ? 'Switch account' : 'Login'}</NavItem>
+          </Sidebar>
+          <Main>
+            <Topbar tenantName={me?.tenantName ?? branding.productName} avatarInitials={initials} />
+            <Work>{children}</Work>
+          </Main>
+        </AppShell>
       </body>
     </html>
   );

@@ -24,7 +24,14 @@ model Partner {
   name                 String
   brandName            String?
   logoUrl              String?
+  // The only two tokens a white-label theme actually swaps (design system
+  // rule: "white-label swaps --primary and --accent only; structure never
+  // changes") — primary drives actions/links, accent is the one signature
+  // brand moment (e.g. the sidebar mark). Everything else the UI renders
+  // (ink, slate, paper, surface, line, semantic success/warning/danger) is a
+  // fixed platform token, not brand-configurable.
   primaryColor         String?
+  accentColor          String?
   supportUrl           String?
   senderDomain         String?
   senderDomainVerified Boolean  @default(false)
@@ -52,13 +59,14 @@ model Tenant {
 // Tenant-level branding override — the top of the resolution chain
 // (tenant override -> partner theme -> platform default). See branding.service.ts.
 model TenantBranding {
-  tenantId    String  @id
-  productName String?
-  logoUrl     String?
+  tenantId     String  @id
+  productName  String?
+  logoUrl      String?
   primaryColor String?
-  supportUrl  String?
+  accentColor  String?
+  supportUrl   String?
 
-  tenant      Tenant  @relation(fields: [tenantId], references: [id])
+  tenant       Tenant  @relation(fields: [tenantId], references: [id])
 }
 
 model User {

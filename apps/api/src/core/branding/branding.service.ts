@@ -6,17 +6,23 @@ import { PrismaService } from '../../shared/prisma/prisma.service';
 // app) should hard-code a product name, logo, colour or support URL; they all
 // call this instead. Only the resolution chain + data model are Phase 1 —
 // the partner self-service console and custom domains are Phase 3 (§7.9).
+//
+// primaryColor and accentColor are the only two tokens a white-label theme
+// swaps (design system rule: "structure never changes" — everything else the
+// UI renders is a fixed platform token, not brand-configurable).
 export interface ResolvedBranding {
   productName: string;
   logoUrl: string | null;
   primaryColor: string;
+  accentColor: string;
   supportUrl: string | null;
 }
 
 const PLATFORM_DEFAULT: ResolvedBranding = {
   productName: 'Tessma One',
   logoUrl: null,
-  primaryColor: '#0f2942',
+  primaryColor: '#175E7A',
+  accentColor: '#B4832A',
   supportUrl: null,
 };
 
@@ -37,6 +43,8 @@ export class BrandingService {
         logoUrl: tenant.branding?.logoUrl ?? tenant.partner?.logoUrl ?? PLATFORM_DEFAULT.logoUrl,
         primaryColor:
           tenant.branding?.primaryColor ?? tenant.partner?.primaryColor ?? PLATFORM_DEFAULT.primaryColor,
+        accentColor:
+          tenant.branding?.accentColor ?? tenant.partner?.accentColor ?? PLATFORM_DEFAULT.accentColor,
         supportUrl:
           tenant.branding?.supportUrl ?? tenant.partner?.supportUrl ?? PLATFORM_DEFAULT.supportUrl,
       };

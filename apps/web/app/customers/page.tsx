@@ -2,11 +2,14 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiRequestError } from '../../lib/api';
-import { Button, Card, EmptyState, ErrorBanner, Input, LoadingState, Table, Td, Th } from '../../components/ui';
+import { Button, Card, Cell, DataTable, EmptyState, ErrorBanner, Input, LoadingState, Row } from '../../components/ui';
+import { PageHead } from '../../components/shell';
+
+const COLUMNS = '1fr 200px';
 
 export default function Customers() {
   const [list, setList] = useState<any[] | null>(null); // null = still loading
-  const [name, setName] = useState('Acme Retail Ltd');
+  const [name, setName] = useState('');
   const [error, setError] = useState('');
   const router = useRouter();
 
@@ -45,11 +48,13 @@ export default function Customers() {
   }
 
   return (
-    <div className="grid gap-4">
-      <Card>
+    <>
+      <PageHead title="Customers" subtitle="Who you invoice" />
+
+      <Card className="mb-4">
         <div className="flex gap-2">
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Legal name" />
-          <Button onClick={create} disabled={!name.trim()}>Add customer</Button>
+          <Button variant="primary" onClick={create} disabled={!name.trim()}>Add customer</Button>
         </div>
       </Card>
 
@@ -60,18 +65,16 @@ export default function Customers() {
       ) : list.length === 0 ? (
         <EmptyState title="No customers yet" description="Add your first customer above to start raising invoices." />
       ) : (
-        <Table>
-          <thead><tr><Th>Legal name</Th><Th>ID</Th></tr></thead>
-          <tbody>
-            {list.map((p) => (
-              <tr key={p.id} className="border-t border-slate-100">
-                <Td>{p.legalName}</Td>
-                <Td><span className="text-slate-400">{p.id.slice(0, 8)}</span></Td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
+        <DataTable columns={COLUMNS}>
+          <Row columns={COLUMNS} head><Cell>Legal name</Cell><Cell>ID</Cell></Row>
+          {list.map((p) => (
+            <Row key={p.id} columns={COLUMNS}>
+              <Cell>{p.legalName}</Cell>
+              <Cell><span className="ident" style={{ color: 'var(--muted)' }}>{p.id.slice(0, 8)}</span></Cell>
+            </Row>
+          ))}
+        </DataTable>
       )}
-    </div>
+    </>
   );
 }

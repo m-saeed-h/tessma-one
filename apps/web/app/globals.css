@@ -2,14 +2,236 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Platform default — the last rung of the branding resolution chain
-   (tenant override -> partner theme -> platform default, Charter §7.4).
-   layout.tsx overrides --brand-primary inline with the resolved value once
-   a tenant/partner theme exists; this is only what renders before that. */
+/* ============================================================
+   TESSMA ONE — DESIGN TOKENS
+
+   Fixed platform tokens live here. The two brand-tunable tokens
+   (--primary, --accent, plus --primary-ink/--primary-wash/--accent-wash
+   derived from them) are set inline on <html> by layout.tsx from the
+   resolved branding chain (Charter §7.4) — never hard-coded here.
+   White-label swaps --primary/--accent only; everything below is
+   structure, not brand.
+   ============================================================ */
 :root {
-  --brand-primary: #0f2942;
+  /* Neutrals — cool ink base, not pure black */
+  --ink:        #14202E;
+  --slate:      #5B6B7C;
+  --muted:      #8A98A6;
+  --paper:      #F5F8FA;
+  --surface:    #FFFFFF;
+  --line:       #E4EAEF;
+  --line-soft:  #EEF2F5;
+
+  /* Semantic — muted, never fire-engine */
+  --success:      #1E8E5A; --success-wash: #E6F3EC;
+  --warning:      #B7791F; --warning-wash: #F9F0DE;
+  --danger:       #C0392B; --danger-wash:  #F9E9E7;
+
+  /* Type */
+  --font-sans: var(--font-plex-sans), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+
+  /* Spacing scale (4px base) */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px;
+
+  /* Radii */
+  --r-sm: 6px; --r-md: 8px; --r-lg: 12px; --r-pill: 999px;
+
+  /* Platform-default brand tokens — layout.tsx overrides these inline once
+     a tenant/partner theme resolves; this is only what renders before that
+     (e.g. before login, or if the branding call fails). */
+  --primary: #175E7A;
+  --primary-ink: #0F4356;
+  --primary-wash: #E7F0F3;
+  --accent: #B4832A;
+  --accent-wash: #F6EEDD;
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased;
+  font-family: var(--font-sans);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
+
+/* Money and any figure column: tabular so digits align in columns. */
+.num { font-variant-numeric: tabular-nums lining-nums; }
+/* Machine identifiers: mono carries the "this is a system reference" meaning. */
+.ident { font-family: var(--font-mono); font-size: 13px; letter-spacing: -0.2px; }
+
+/* ---------- App shell ---------- */
+.app { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
+
+.sidebar {
+  background: var(--ink);
+  color: #C7D2DC;
+  padding: var(--s5) var(--s3);
+  display: flex; flex-direction: column; gap: var(--s2);
+}
+.brand { display: flex; align-items: center; gap: 10px; padding: 0 var(--s3) var(--s5) var(--s3); }
+.brand-mark {
+  width: 28px; height: 28px; border-radius: var(--r-sm);
+  background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink); font-weight: 700; font-size: 15px;
+}
+.brand-name { color: #fff; font-weight: 600; font-size: 16px; letter-spacing: -0.2px; }
+.nav-section {
+  font-size: 11px; letter-spacing: 0.06em; color: #63788A;
+  padding: var(--s4) var(--s3) var(--s2); font-weight: 600;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px var(--s3); border-radius: var(--r-sm);
+  color: #AEBCC7; font-size: 14px; cursor: pointer; text-decoration: none;
+}
+.nav-item:hover { background: rgba(255,255,255,.05); color: #E4EBF0; }
+.nav-item.active { background: var(--primary); color: #fff; font-weight: 500; }
+.nav-item .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .5; }
+.nav-item.locked { color: #5A6D7C; cursor: default; }
+.nav-item.locked .tag {
+  margin-left: auto; font-size: 10px; padding: 2px 6px; border-radius: var(--r-pill);
+  background: rgba(255,255,255,.06); color: #7C8E9C;
+}
+
+/* ---------- Top bar ---------- */
+.main { display: flex; flex-direction: column; min-width: 0; }
+.topbar {
+  height: 60px; background: var(--surface); border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; gap: var(--s4); padding: 0 var(--s6);
+}
+.search {
+  flex: 1; max-width: 420px; height: 36px; border: 1px solid var(--line);
+  border-radius: var(--r-md); background: var(--paper); padding: 0 var(--s3);
+  display: flex; align-items: center; gap: var(--s2); color: var(--muted); font-size: 13px;
+}
+.tenant-pill {
+  display: flex; align-items: center; gap: 8px; margin-left: auto;
+  padding: 6px 12px; border: 1px solid var(--line); border-radius: var(--r-pill); font-size: 13px;
+}
+.tenant-pill .swatch { width: 16px; height: 16px; border-radius: 4px; background: var(--accent); }
+.avatar {
+  width: 34px; height: 34px; border-radius: 50%; background: var(--primary-wash);
+  color: var(--primary-ink); display: flex; align-items: center; justify-content: center;
+  font-weight: 600; font-size: 13px;
+}
+
+/* ---------- Work area ---------- */
+.work { padding: var(--s6); }
+/* Used by pages with a list + sticky detail panel (e.g. Invoices) — most
+   pages are single-column and don't opt into this. */
+.workspace-split { display: grid; grid-template-columns: 1fr 372px; gap: var(--s5); align-items: start; }
+@media (max-width: 900px) { .workspace-split { grid-template-columns: 1fr; } }
+.page-head { display: flex; align-items: baseline; gap: var(--s3); margin-bottom: var(--s5); }
+.page-head h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.4px; }
+.page-head .sub { color: var(--slate); font-size: 13px; }
+
+.btn {
+  height: 38px; padding: 0 var(--s4); border-radius: var(--r-md); border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); font-family: inherit; font-size: 14px;
+  font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+}
+.btn:hover { border-color: var(--muted); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-ink); border-color: var(--primary-ink); }
+.btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+.btn-danger:hover { filter: brightness(.92); }
+
+/* Metric strip */
+.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--s3); margin-bottom: var(--s5); }
+.metric { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--s4); }
+.metric .label { color: var(--slate); font-size: 12px; margin-bottom: 6px; }
+.metric .value { font-size: 22px; font-weight: 600; letter-spacing: -0.3px; }
+.metric .value .cur { color: var(--muted); font-weight: 500; font-size: 15px; margin-right: 1px; }
+.metric .value .minor { font-size: 15px; color: var(--muted); }
+.metric .delta { font-size: 12px; margin-top: 4px; color: var(--muted); }
+.metric .delta.up { color: var(--success); }
+.metric .delta.down { color: var(--danger); }
+
+/* Tabs */
+.tabs { display: flex; gap: var(--s1); border-bottom: 1px solid var(--line); margin-bottom: var(--s2); }
+.tab {
+  padding: 10px var(--s3); font-size: 14px; color: var(--slate); cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px; background: none; border-top: none;
+  border-left: none; border-right: none; font-family: inherit;
+}
+.tab.active { color: var(--ink); font-weight: 600; border-bottom-color: var(--primary); }
+.tab .count { color: var(--muted); font-weight: 400; margin-left: 4px; }
+
+/* Table — hairline rows, not cards. Money right-aligned + tabular. */
+.table { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
+.trow {
+  display: grid; align-items: center; gap: var(--s3); padding: 13px var(--s4);
+  border-bottom: 1px solid var(--line-soft); cursor: pointer;
+}
+.trow:last-child { border-bottom: none; }
+.trow:hover { background: var(--paper); }
+.trow.sel { background: var(--primary-wash); }
+.trow.head {
+  background: var(--paper); color: var(--slate); font-size: 12px; font-weight: 600;
+  cursor: default; padding-top: 10px; padding-bottom: 10px;
+}
+.trow.head:hover { background: var(--paper); }
+.cust { display: flex; flex-direction: column; }
+.cust .name { font-weight: 500; }
+.cust .meta { color: var(--muted); font-size: 12px; }
+.right { text-align: right; }
+.money { text-align: right; font-weight: 600; }
+.money .cur { color: var(--muted); font-weight: 500; margin-right: 1px; }
+.date { color: var(--slate); }
+
+/* Status pills — precise, semantic, extended beyond the mockup's four to
+   cover this system's full status vocabulary (partial payment, cancelled,
+   pending approval, etc.) using the same fixed semantic tokens. */
+.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; padding: 3px 10px; border-radius: var(--r-pill); }
+.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pill.neutral  { background: #EEF2F5; color: #5B6B7C; }
+.pill.info     { background: var(--primary-wash); color: var(--primary-ink); }
+.pill.positive { background: var(--success-wash); color: var(--success); }
+.pill.negative { background: var(--danger-wash); color: var(--danger); }
+.pill.pending  { background: var(--warning-wash); color: var(--warning); }
+
+/* ---------- Detail panel (the signature: ledger truth) ---------- */
+.detail { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); position: sticky; top: var(--s6); overflow: hidden; }
+.detail-head { padding: var(--s5); border-bottom: 1px solid var(--line); }
+.detail-head .row1 { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--s2); }
+.detail-head .inv-no { font-size: 18px; font-weight: 600; letter-spacing: -0.2px; }
+.detail-head .cust-name { font-size: 15px; font-weight: 500; }
+.detail-head .cust-sub { color: var(--slate); font-size: 13px; }
+.detail-body { padding: var(--s5); }
+.line { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--line-soft); }
+.line .desc { color: var(--ink); }
+.line .desc small { color: var(--muted); display: block; font-size: 12px; }
+.totals { margin-top: var(--s4); padding-top: var(--s3); }
+.totals .t { display: flex; justify-content: space-between; padding: 5px 0; color: var(--slate); font-size: 13px; }
+.totals .t.grand { color: var(--ink); font-weight: 600; font-size: 16px; border-top: 1px solid var(--line); margin-top: 6px; padding-top: var(--s3); }
+
+/* The hero moment: the balanced posting. */
+.posting { margin: var(--s5); margin-top: 0; background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--s4); }
+.posting-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--s3); }
+.posting-title .h { font-size: 12px; font-weight: 600; color: var(--slate); }
+.balanced { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--success); background: var(--success-wash); padding: 3px 9px; border-radius: var(--r-pill); }
+.balanced::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.post-row { display: grid; grid-template-columns: 1fr 84px 84px; gap: var(--s2); padding: 6px 0; font-size: 13px; align-items: center; }
+.post-row.h { color: var(--muted); font-size: 11px; font-weight: 600; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+.post-row .acct { color: var(--ink); }
+.post-row .acct .code { color: var(--muted); }
+.post-row .dr, .post-row .cr { text-align: right; font-weight: 500; }
+.post-row .z { color: var(--muted); }
+.post-row.total { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 8px; font-weight: 600; }
+.audit { margin: 0 var(--s5) var(--s5); font-size: 12px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+
+/* Empty / loading / error states inside the detail panel or a plain page. */
+.state-block { padding: var(--s6); text-align: center; color: var(--slate); font-size: 13px; }
+.state-block.error { color: var(--danger); }
+
+/* Cards, inputs, selects for forms outside the table pattern. */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--s4); }
+.field {
+  height: 38px; padding: 0 var(--s3); border-radius: var(--r-md); border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); font-family: inherit; font-size: 14px; width: 100%;
+}
+.field:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-wash); }

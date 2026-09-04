@@ -1,29 +1,60 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiRequestError } from '../../lib/api';
-import { Button, Card, ErrorBanner, LoadingState, Select, StatusBadge, Table, Td, Th } from '../../components/ui';
+import {
+  AuditLine, Button, Cell, DataTable, DetailHead, DetailPanel, EmptyState, ErrorBanner,
+  LedgerPostingBlock, LineItem, LoadingState, Metric, MetricStrip, Row, Select, StatusPill,
+  Tab, Tabs, TotalRow, Totals,
+} from '../../components/ui';
+import { PageHead } from '../../components/shell';
 
-const gbp = (p: string) => '£' + (Number(p) / 100).toFixed(2);
+const gbp = (pence: string) => '£' + (Number(pence) / 100).toFixed(2);
+const COLUMNS = '96px 1fr 108px 130px 100px';
+
+type TabKey = 'all' | 'draft' | 'issued' | 'overdue' | 'paid';
+
+function isOverdue(inv: any): boolean {
+  if (inv.status !== 'ISSUED' && inv.status !== 'PARTIALLY_PAID') return false;
+  return !!inv.dueDate && new Date(inv.dueDate).getTime() < Date.now();
+}
 
 export default function Invoices() {
   const [customers, setCustomers] = useState<any[] | null>(null);
+  const [invoices, setInvoices] = useState<any[] | null>(null);
+  const [metrics, setMetrics] = useState<any | null>(null);
   const [partyId, setPartyId] = useState('');
-  const [invoice, setInvoice] = useState<any>(null);
-  const [tb, setTb] = useState<any>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<any | null>(null);
+  const [tab, setTab] = useState<TabKey>('all');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const router = useRouter();
 
-  useEffect(() => {
-    api('/customers')
-      .then((c) => { setCustomers(c); if (c[0]) setPartyId(c[0].id); })
-      .catch((e) => {
-        if (e instanceof ApiRequestError && e.status === 401) { router.push('/login'); return; }
-        setError(e instanceof ApiRequestError ? e.error.message : 'Failed to load customers');
-        setCustomers([]);
-      });
-  }, []);
+  async function loadList() {
+    try {
+      const [c, i, m] = await Promise.all([
+        api('/customers'), api('/invoices'), api('/reports/invoice-metrics'),
+      ]);
+      setCustomers(c);
+      setInvoices(i);
+      setMetrics(m);
+      if (c[0] && !partyId) setPartyId(c[0].id);
+    } catch (e) {
+      if (e instanceof ApiRequestError && e.status === 401) { router.push('/login'); return; }
+      setError(e instanceof ApiRequestError ? e.error.message : 'Failed to load invoices');
+    }
+  }
+  useEffect(() => { loadList(); }, []);
+
+  async function selectInvoice(id: string) {
+    setSelectedId(id);
+    try {
+      setSelected(await api(`/invoices/${id}`));
+    } catch (e) {
+      setError(e instanceof ApiRequestError ? e.error.message : 'Failed to load invoice');
+    }
+  }
 
   async function draft() {
     setBusy(true);
@@ -38,9 +69,9 @@ export default function Invoices() {
           ],
         }),
       });
-      setInvoice(r);
-      setTb(null);
       setError('');
+      await loadList();
+      selectInvoice(r.id);
     } catch (e) {
       setError(e instanceof ApiRequestError ? e.error.message : 'Failed to create draft');
     } finally {
@@ -49,12 +80,13 @@ export default function Invoices() {
   }
 
   async function issue() {
+    if (!selected) return;
     setBusy(true);
     try {
-      const r = await api(`/invoices/${invoice.id}/issue`, { method: 'POST' });
-      setInvoice(r);
-      setTb(await api('/invoices/trial-balance'));
+      await api(`/invoices/${selected.id}/issue`, { method: 'POST' });
       setError('');
+      await loadList();
+      selectInvoice(selected.id);
     } catch (e) {
       setError(e instanceof ApiRequestError ? e.error.message : 'Failed to issue invoice');
     } finally {
@@ -62,52 +94,159 @@ export default function Invoices() {
     }
   }
 
-  if (customers === null) return <LoadingState label="Loading customers…" />;
+  async function cancel() {
+    if (!selected) return;
+    const reason = window.prompt('Reason for cancelling this invoice (required):');
+    if (!reason) return;
+    setBusy(true);
+    try {
+      await api(`/invoices/${selected.id}/cancel`, { method: 'POST', body: JSON.stringify({ reason }) });
+      setError('');
+      await loadList();
+      selectInvoice(selected.id);
+    } catch (e) {
+      setError(e instanceof ApiRequestError ? e.error.message : 'Failed to cancel invoice');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const counts = useMemo(() => {
+    if (!invoices) return { all: 0, draft: 0, issued: 0, overdue: 0, paid: 0 };
+    return {
+      all: invoices.length,
+      draft: invoices.filter((i) => i.status === 'DRAFT').length,
+      issued: invoices.filter((i) => (i.status === 'ISSUED' || i.status === 'PARTIALLY_PAID') && !isOverdue(i)).length,
+      overdue: invoices.filter(isOverdue).length,
+      paid: invoices.filter((i) => i.status === 'PAID').length,
+    };
+  }, [invoices]);
+
+  const visible = useMemo(() => {
+    if (!invoices) return [];
+    switch (tab) {
+      case 'draft': return invoices.filter((i) => i.status === 'DRAFT');
+      case 'issued': return invoices.filter((i) => (i.status === 'ISSUED' || i.status === 'PARTIALLY_PAID') && !isOverdue(i));
+      case 'overdue': return invoices.filter(isOverdue);
+      case 'paid': return invoices.filter((i) => i.status === 'PAID');
+      default: return invoices;
+    }
+  }, [invoices, tab]);
+
+  if (customers === null || invoices === null) return <LoadingState label="Loading invoices…" />;
 
   return (
-    <div className="grid gap-4">
-      <Card>
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={partyId} onChange={(e) => setPartyId(e.target.value)} className="max-w-xs">
-            {customers.map((c) => <option key={c.id} value={c.id}>{c.legalName}</option>)}
-          </Select>
-          <Button onClick={draft} disabled={!partyId || busy} variant="secondary">Create draft</Button>
-          <Button onClick={issue} disabled={!invoice || invoice.status !== 'DRAFT' || busy}>Issue</Button>
-        </div>
-      </Card>
+    <>
+      <PageHead title="Invoices" subtitle="Sales invoicing & collection">
+        <Select value={partyId} onChange={(e) => setPartyId(e.target.value)} style={{ width: 200 }}>
+          {customers.map((c) => <option key={c.id} value={c.id}>{c.legalName}</option>)}
+        </Select>
+        <Button variant="primary" onClick={draft} disabled={!partyId || busy}>New invoice</Button>
+      </PageHead>
 
       {error && <ErrorBanner message={error} />}
 
-      {invoice && (
-        <Card className="flex items-center justify-between">
-          <div>
-            <div className="font-medium">{invoice.number || 'Draft'}</div>
-            <div className="text-sm text-slate-500">
-              Net {gbp(invoice.netTotal)} · VAT {gbp(invoice.vatTotal)} ·{' '}
-              <span className="font-medium text-slate-900">Gross {gbp(invoice.grossTotal)}</span>
-            </div>
-          </div>
-          <StatusBadge status={invoice.status} />
-        </Card>
+      {metrics && (
+        <MetricStrip>
+          <Metric label="Outstanding" value={gbp(metrics.outstandingPence)} />
+          <Metric
+            label="Overdue" value={gbp(metrics.overduePence)}
+            delta={metrics.overduePence !== '0' ? `${counts.overdue} invoice${counts.overdue === 1 ? '' : 's'}` : 'None'}
+            direction={metrics.overduePence !== '0' ? 'down' : 'up'}
+          />
+          <Metric label="Paid this month" value={gbp(metrics.paidThisMonthPence)} />
+          <Metric label="Avg days to pay" value={metrics.avgDaysToPay === null ? '—' : String(metrics.avgDaysToPay)} minor={metrics.avgDaysToPay === null ? undefined : 'days'} />
+        </MetricStrip>
       )}
 
-      {tb && (
-        <div>
-          <h4 className="mb-2 text-sm font-medium text-slate-700">Trial balance — proves the books balance</h4>
-          <Table>
-            <thead><tr><Th>Account</Th><Th align="right">Debit</Th><Th align="right">Credit</Th></tr></thead>
-            <tbody>
-              {Object.entries(tb).map(([code, v]: any) => (
-                <tr key={code} className="border-t border-slate-100">
-                  <Td>{v.name}</Td>
-                  <Td align="right">{gbp(v.debit)}</Td>
-                  <Td align="right">{gbp(v.credit)}</Td>
-                </tr>
+      <div className="workspace-split">
+        <section>
+          <Tabs>
+            <Tab active={tab === 'all'} count={counts.all} onClick={() => setTab('all')}>All</Tab>
+            <Tab active={tab === 'draft'} count={counts.draft} onClick={() => setTab('draft')}>Draft</Tab>
+            <Tab active={tab === 'issued'} count={counts.issued} onClick={() => setTab('issued')}>Issued</Tab>
+            <Tab active={tab === 'overdue'} count={counts.overdue} onClick={() => setTab('overdue')}>Overdue</Tab>
+            <Tab active={tab === 'paid'} count={counts.paid} onClick={() => setTab('paid')}>Paid</Tab>
+          </Tabs>
+
+          {visible.length === 0 ? (
+            <EmptyState title="No invoices here" description={tab === 'all' ? 'Create your first invoice above.' : 'Nothing in this view yet.'} />
+          ) : (
+            <DataTable columns={COLUMNS}>
+              <Row columns={COLUMNS} head>
+                <Cell>Number</Cell><Cell>Customer</Cell><Cell align="right">Amount</Cell><Cell>Status</Cell><Cell align="right">Due</Cell>
+              </Row>
+              {visible.map((inv) => (
+                <Row key={inv.id} columns={COLUMNS} selected={inv.id === selectedId} onClick={() => selectInvoice(inv.id)}>
+                  <Cell><span className="ident">{inv.number ?? 'DRAFT'}</span></Cell>
+                  <Cell>{inv.party?.legalName ?? '—'}</Cell>
+                  <Cell align="right"><span className="num" style={{ fontWeight: 600 }}>{gbp(inv.grossTotal)}</span></Cell>
+                  <Cell><StatusPill status={isOverdue(inv) ? 'OVERDUE' : inv.status} /></Cell>
+                  <Cell align="right">
+                    <span className="num" style={{ color: isOverdue(inv) ? 'var(--danger)' : 'var(--slate)' }}>
+                      {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}
+                    </span>
+                  </Cell>
+                </Row>
               ))}
-            </tbody>
-          </Table>
-        </div>
-      )}
-    </div>
+            </DataTable>
+          )}
+        </section>
+
+        <DetailPanel>
+          {!selected ? (
+            <EmptyState title="No invoice selected" description="Click a row to see its detail and ledger posting." />
+          ) : (
+            <>
+              <DetailHead
+                title={selected.number ?? 'Draft'}
+                subtitle={selected.issueDate
+                  ? `Issued ${new Date(selected.issueDate).toLocaleDateString('en-GB')} · due ${selected.dueDate ? new Date(selected.dueDate).toLocaleDateString('en-GB') : '—'}`
+                  : 'Not yet issued'}
+                status={<StatusPill status={isOverdue(selected) ? 'OVERDUE' : selected.status} />}
+              />
+              <div style={{ padding: '0 var(--s5)', paddingTop: 'var(--s4)', fontWeight: 500, fontSize: 15 }}>
+                {selected.party?.legalName}
+              </div>
+              <div className="detail-body" style={{ paddingBottom: 'var(--s3)' }}>
+                {selected.lines.map((l: any) => (
+                  <LineItem
+                    key={l.id}
+                    description={l.description}
+                    meta={` ${l.quantity} × ${gbp(l.unitPrice)}${l.discountPct ? ` · ${l.discountPct}% disc` : ''} · ${l.vatRatePct}% VAT`}
+                    amount={gbp(l.total)}
+                  />
+                ))}
+                <Totals>
+                  <TotalRow label="Net" amount={gbp(selected.netTotal)} />
+                  <TotalRow label={`VAT`} amount={gbp(selected.vatTotal)} />
+                  <TotalRow label="Total due" amount={gbp(selected.grossTotal)} grand />
+                </Totals>
+              </div>
+
+              {selected.status === 'DRAFT' && (
+                <div style={{ padding: '0 var(--s5) var(--s5)' }}>
+                  <Button variant="primary" onClick={issue} disabled={busy} style={{ width: '100%' }}>Issue invoice</Button>
+                </div>
+              )}
+
+              <LedgerPostingBlock entries={selected.ledgerEntries} formatMoney={gbp} />
+
+              {selected.status === 'ISSUED' && selected.allocatedTotal === '0' && (
+                <div style={{ padding: '0 var(--s5) var(--s5)' }}>
+                  <Button onClick={cancel} disabled={busy} style={{ width: '100%' }}>Cancel invoice</Button>
+                </div>
+              )}
+              {selected.cancelledReason && (
+                <AuditLine>Cancelled: {selected.cancelledReason}</AuditLine>
+              )}
+              {selected.status !== 'DRAFT' && !selected.cancelledReason && (
+                <AuditLine>Locked & immutable once issued</AuditLine>
+              )}
+            </>
+          )}
+        </DetailPanel>
+      </div>
+    </>
   );
 }

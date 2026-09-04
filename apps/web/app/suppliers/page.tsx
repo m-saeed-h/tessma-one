@@ -2,7 +2,10 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiRequestError } from '../../lib/api';
-import { Button, Card, EmptyState, ErrorBanner, Input, LoadingState, Table, Td, Th } from '../../components/ui';
+import { Button, Card, Cell, DataTable, EmptyState, ErrorBanner, Input, LoadingState, Row } from '../../components/ui';
+import { PageHead } from '../../components/shell';
+
+const COLUMNS = '1fr 140px 140px';
 
 export default function Suppliers() {
   const [list, setList] = useState<any[] | null>(null);
@@ -45,15 +48,17 @@ export default function Suppliers() {
   }
 
   return (
-    <div className="grid gap-4">
-      <Card>
+    <>
+      <PageHead title="Suppliers" subtitle="Who you owe" />
+
+      <Card className="mb-4">
         <div className="flex gap-2">
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Legal name" />
-          <Button onClick={create} disabled={!name.trim()}>Add supplier</Button>
+          <Button variant="primary" onClick={create} disabled={!name.trim()}>Add supplier</Button>
         </div>
-        <p className="mt-2 text-xs text-slate-500">
-          Bank details can be added via the API (<code>POST /suppliers/:id/bank-details</code>) — encrypted at rest,
-          re-authentication required to change. Not yet in this screen.
+        <p className="mt-2 text-xs" style={{ color: 'var(--muted)' }}>
+          Bank details can be added via the API (<code className="ident">POST /suppliers/:id/bank-details</code>) —
+          encrypted at rest, re-authentication required to change. Not yet in this screen.
         </p>
       </Card>
 
@@ -64,19 +69,17 @@ export default function Suppliers() {
       ) : list.length === 0 ? (
         <EmptyState title="No suppliers yet" description="Add your first supplier above." />
       ) : (
-        <Table>
-          <thead><tr><Th>Legal name</Th><Th>Payment terms</Th><Th>Bank details</Th></tr></thead>
-          <tbody>
-            {list.map((p) => (
-              <tr key={p.id} className="border-t border-slate-100">
-                <Td>{p.legalName}</Td>
-                <Td>{p.supplier?.paymentTerms} days</Td>
-                <Td>{p.supplier?.hasBankDetails ? 'On file' : '—'}</Td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
+        <DataTable columns={COLUMNS}>
+          <Row columns={COLUMNS} head><Cell>Legal name</Cell><Cell>Payment terms</Cell><Cell>Bank details</Cell></Row>
+          {list.map((p) => (
+            <Row key={p.id} columns={COLUMNS}>
+              <Cell>{p.legalName}</Cell>
+              <Cell>{p.supplier?.paymentTerms} days</Cell>
+              <Cell>{p.supplier?.hasBankDetails ? 'On file' : '—'}</Cell>
+            </Row>
+          ))}
+        </DataTable>
       )}
-    </div>
+    </>
   );
 }

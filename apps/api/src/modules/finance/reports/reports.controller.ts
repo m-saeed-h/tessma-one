@@ -16,4 +16,10 @@ export class ReportsController {
   async agedReceivables(@Req() req: any) {
     return serialise(await this.reports.agedReceivables(req.ctx.tenantId));
   }
+
+  @RequirePermissions(PERMISSIONS.REPORT_READ)
+  @Get('invoice-metrics')
+  async invoiceMetrics(@Req() req: any) {
+    return serialise(await this.reports.invoiceMetrics(req.ctx.tenantId));
+  }
 }

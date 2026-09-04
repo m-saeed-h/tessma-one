@@ -159,15 +159,28 @@ export class FinanceService {
     });
   }
 
+  // Includes ledgerEntries (with the account each posted to) — the UI's
+  // invoice detail panel shows the actual balanced posting behind an issued
+  // invoice, not a rendering of the invoice total; this is where that data
+  // comes from. A draft invoice simply has none yet (nothing posted).
   async get(tenantId: string, invoiceId: string) {
     return this.prisma.forTenant(tenantId, (tx) =>
-      tx.invoice.findUniqueOrThrow({ where: { id: invoiceId }, include: { lines: true, party: true } }),
+      tx.invoice.findUniqueOrThrow({
+        where: { id: invoiceId },
+        include: { lines: true, party: true, ledgerEntries: { include: { account: true } } },
+      }),
     );
   }
 
+  // Includes party (name) — the invoice list is a table with a Customer
+  // column, not just a list of ids.
   async list(tenantId: string, partyId?: string) {
     return this.prisma.forTenant(tenantId, (tx) =>
-      tx.invoice.findMany({ where: partyId ? { partyId } : undefined, orderBy: { createdAt: 'desc' } }),
+      tx.invoice.findMany({
+        where: partyId ? { partyId } : undefined,
+        include: { party: true },
+        orderBy: { createdAt: 'desc' },
+      }),
     );
   }
 

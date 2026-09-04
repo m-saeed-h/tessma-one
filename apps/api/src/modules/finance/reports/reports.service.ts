@@ -54,4 +54,58 @@ export class ReportsService {
       return Array.from(byParty.values()).sort((a, b) => (b.total > a.total ? 1 : -1));
     });
   }
+
+  // Backs the dashboard metric strip. Real aggregates, not placeholders —
+  // outstanding/overdue reuse the same status set and cutoff logic as
+  // agedReceivables above; paidThisMonth and avgDaysToPay are the two that
+  // genuinely need their own queries (Payment data isn't on the Invoice list).
+  async invoiceMetrics(tenantId: string) {
+    return this.prisma.forTenant(tenantId, async (tx) => {
+      const openInvoices = await tx.invoice.findMany({
+        where: { status: { in: ['ISSUED', 'PARTIALLY_PAID'] } },
+      });
+      const today = Date.now();
+      let outstanding = 0n;
+      let overdue = 0n;
+      for (const inv of openInvoices) {
+        const remaining = inv.grossTotal - inv.allocatedTotal;
+        if (remaining <= 0n) continue;
+        outstanding += remaining;
+        const dueDate = inv.dueDate ?? inv.issueDate ?? inv.createdAt;
+        if (dueDate.getTime() < today) overdue += remaining;
+      }
+
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const paymentsThisMonth = await tx.payment.findMany({ where: { receivedDate: { gte: monthStart } } });
+      const paidThisMonth = paymentsThisMonth.reduce((s, p) => s + p.amount, 0n);
+
+      // Average days from issue to "fully paid" — the latest allocation's
+      // payment date, since a PAID invoice may have been settled across
+      // several partial payments (PaymentAllocation itself carries no
+      // timestamp; the payment it belongs to does, which is close enough —
+      // allocation happens in the same request as recording the payment).
+      const paidInvoices = await tx.invoice.findMany({
+        where: { status: 'PAID', issueDate: { not: null } },
+        include: { allocations: { include: { payment: true } } },
+      });
+      let totalDays = 0;
+      let countedInvoices = 0;
+      for (const inv of paidInvoices) {
+        if (!inv.issueDate || inv.allocations.length === 0) continue;
+        const latestPayment = inv.allocations.reduce((latest, a) =>
+          a.payment.receivedDate > latest ? a.payment.receivedDate : latest, inv.allocations[0].payment.receivedDate);
+        totalDays += Math.round((latestPayment.getTime() - inv.issueDate.getTime()) / 86_400_000);
+        countedInvoices += 1;
+      }
+      const avgDaysToPay = countedInvoices > 0 ? Math.round(totalDays / countedInvoices) : null;
+
+      return {
+        outstandingPence: outstanding,
+        overduePence: overdue,
+        paidThisMonthPence: paidThisMonth,
+        avgDaysToPay,
+      };
+    });
+  }
 }

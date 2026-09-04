@@ -2,9 +2,11 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiRequestError } from '../../lib/api';
-import { Button, Card, EmptyState, ErrorBanner, Input, LoadingState, Select, StatusBadge, Table, Td, Th } from '../../components/ui';
+import { Button, Card, Cell, DataTable, EmptyState, ErrorBanner, Input, LoadingState, Row, Select, StatusPill } from '../../components/ui';
+import { PageHead } from '../../components/shell';
 
 const gbp = (p: string) => '£' + (Number(p) / 100).toFixed(2);
+const COLUMNS = '100px 1fr 100px 100px 90px 70px';
 
 export default function Products() {
   const [list, setList] = useState<any[] | null>(null);
@@ -49,23 +51,19 @@ export default function Products() {
   }
 
   return (
-    <div className="grid gap-4">
-      <Card>
+    <>
+      <PageHead title="Products" subtitle="What you sell" />
+
+      <Card className="mb-4">
         <div className="flex flex-wrap items-end gap-2">
-          <div className="w-28">
-            <Input value={sku} onChange={(e) => setSku(e.target.value)} placeholder="SKU" />
-          </div>
-          <div className="flex-1 min-w-[160px]">
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" />
-          </div>
-          <Select value={type} onChange={(e) => setType(e.target.value)} className="w-32">
+          <div style={{ width: 110 }}><Input value={sku} onChange={(e) => setSku(e.target.value)} placeholder="SKU" /></div>
+          <div className="flex-1" style={{ minWidth: 160 }}><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" /></div>
+          <Select value={type} onChange={(e) => setType(e.target.value)} style={{ width: 130 }}>
             <option value="SERVICE">Service</option>
             <option value="PRODUCT">Product</option>
           </Select>
-          <div className="w-28">
-            <Input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Price £" inputMode="decimal" />
-          </div>
-          <Button onClick={create} disabled={!sku.trim() || !name.trim() || !price}>Add product</Button>
+          <div style={{ width: 110 }}><Input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Price £" inputMode="decimal" /></div>
+          <Button variant="primary" onClick={create} disabled={!sku.trim() || !name.trim() || !price}>Add product</Button>
         </div>
       </Card>
 
@@ -76,28 +74,32 @@ export default function Products() {
       ) : list.length === 0 ? (
         <EmptyState title="No products yet" description="Add your first product or service above." />
       ) : (
-        <Table>
-          <thead><tr><Th>SKU</Th><Th>Name</Th><Th>Type</Th><Th align="right">Price</Th><Th>Status</Th><Th></Th></tr></thead>
-          <tbody>
-            {list.map((p) => (
-              <tr key={p.id} className="border-t border-slate-100">
-                <Td>{p.sku}</Td>
-                <Td>{p.name}</Td>
-                <Td>{p.type}</Td>
-                <Td align="right">{gbp(p.unitPrice)}</Td>
-                <Td><StatusBadge status={p.status} /></Td>
-                <Td>
-                  {p.status === 'ACTIVE' && (
-                    <button onClick={() => archive(p.id)} className="text-xs text-slate-500 hover:text-red-600 underline">
-                      Archive
-                    </button>
-                  )}
-                </Td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
+        <DataTable columns={COLUMNS}>
+          <Row columns={COLUMNS} head>
+            <Cell>SKU</Cell><Cell>Name</Cell><Cell>Type</Cell><Cell align="right">Price</Cell><Cell>Status</Cell><Cell></Cell>
+          </Row>
+          {list.map((p) => (
+            <Row key={p.id} columns={COLUMNS}>
+              <Cell><span className="ident">{p.sku}</span></Cell>
+              <Cell>{p.name}</Cell>
+              <Cell>{p.type}</Cell>
+              <Cell align="right"><span className="num">{gbp(p.unitPrice)}</span></Cell>
+              <Cell><StatusPill status={p.status} /></Cell>
+              <Cell>
+                {p.status === 'ACTIVE' && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); archive(p.id); }}
+                    className="text-xs underline"
+                    style={{ color: 'var(--muted)' }}
+                  >
+                    Archive
+                  </button>
+                )}
+              </Cell>
+            </Row>
+          ))}
+        </DataTable>
       )}
-    </div>
+    </>
   );
 }
