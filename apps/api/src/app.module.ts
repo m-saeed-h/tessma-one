@@ -11,6 +11,8 @@ import { EntitlementsGuard } from './core/subscriptions/entitlements.guard';
 import { EntitlementsService } from './core/subscriptions/entitlements.service';
 import { IdentityController } from './core/identity/identity.controller';
 import { PartyController } from './core/party/party.controller';
+import { SuppliersController } from './core/party/suppliers.controller';
+import { SuppliersService } from './core/party/suppliers.service';
 import { BrandingController } from './core/branding/branding.controller';
 import { BrandingService } from './core/branding/branding.service';
 import { HealthController } from './core/health/health.controller';
@@ -24,8 +26,19 @@ import { WorkflowController } from './core/workflow/workflow.controller';
 import { WorkflowService } from './core/workflow/workflow.service';
 import { AiGatewayController } from './core/ai/ai-gateway.controller';
 import { AiGatewayService } from './core/ai/ai-gateway.service';
+import { NumberingService } from './shared/numbering/numbering.service';
 import { FinanceController } from './modules/finance/finance.controller';
 import { FinanceService } from './modules/finance/finance.service';
+import { ProductsController } from './modules/finance/products/products.controller';
+import { ProductsService } from './modules/finance/products/products.service';
+import { QuotationsController } from './modules/finance/quotations/quotations.controller';
+import { QuotationsService } from './modules/finance/quotations/quotations.service';
+import { CreditNotesController } from './modules/finance/credit-notes/credit-notes.controller';
+import { CreditNotesService } from './modules/finance/credit-notes/credit-notes.service';
+import { PaymentsController } from './modules/finance/payments/payments.controller';
+import { PaymentsService } from './modules/finance/payments/payments.service';
+import { ReportsController } from './modules/finance/reports/reports.controller';
+import { ReportsService } from './modules/finance/reports/reports.service';
 
 @Module({
   imports: [JwtModule.register({})],
@@ -33,12 +46,18 @@ import { FinanceService } from './modules/finance/finance.service';
     HealthController,
     IdentityController,
     PartyController,
+    SuppliersController,
     BrandingController,
     DocumentsController,
     NotificationsController,
     WorkflowController,
     AiGatewayController,
     FinanceController,
+    ProductsController,
+    QuotationsController,
+    CreditNotesController,
+    PaymentsController,
+    ReportsController,
   ],
   providers: [
     PrismaService,
@@ -52,7 +71,14 @@ import { FinanceService } from './modules/finance/finance.service';
     NotificationsService,
     WorkflowService,
     AiGatewayService,
+    NumberingService,
+    SuppliersService,
     FinanceService,
+    ProductsService,
+    QuotationsService,
+    CreditNotesService,
+    PaymentsService,
+    ReportsService,
     // Global guards run in registration order, deny by default:
     // 1. AuthGuard      — who are you (token, from cookie or header only)
     // 2. CsrfGuard       — for cookie-authenticated mutations, prove same-origin

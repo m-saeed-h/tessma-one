@@ -65,6 +65,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <nav className="flex gap-5 text-sm font-medium text-slate-600">
             <a href="/login" className="hover:text-[var(--brand-primary)]">Login</a>
             <a href="/customers" className="hover:text-[var(--brand-primary)]">Customers</a>
+            <a href="/suppliers" className="hover:text-[var(--brand-primary)]">Suppliers</a>
+            <a href="/products" className="hover:text-[var(--brand-primary)]">Products</a>
             <a href="/invoices" className="hover:text-[var(--brand-primary)]">Invoices</a>
             <a href="/notifications" className="hover:text-[var(--brand-primary)]">Notifications</a>
           </nav>

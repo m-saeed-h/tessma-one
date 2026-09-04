@@ -38,8 +38,10 @@ DO $$
 DECLARE t text;
 BEGIN
   FOREACH t IN ARRAY ARRAY[
-    'Party','CustomerRole','Product','Account',
-    'Invoice','InvoiceLine','LedgerEntry','AuditEvent','NumberSequence',
+    'Party','CustomerRole','SupplierRole','Product','Account',
+    'Invoice','InvoiceLine','Quotation','QuotationLine',
+    'CreditNote','CreditNoteLine','Payment','PaymentAllocation',
+    'LedgerEntry','AuditEvent','NumberSequence',
     'Role','RolePermission','UserRole','TenantBranding','TenantSubscription',
     'Document','Notification','ApprovalRule','ApprovalRequest','ApprovalDecision',
     'AiUsageEvent'

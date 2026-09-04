@@ -165,43 +165,89 @@ model TenantSubscription {
 }
 
 // ---- Core: shared Party master -----------------------------------------------
-// A customer/supplier/etc is a ROLE on a Party, not its own table.
+// A customer/supplier/etc is a ROLE on a Party, not its own table (Charter
+// §2.2: "Finance must consume the shared Party service even though, in
+// Phase 1, Finance is the only consumer"). FR-PTY-002/003/004/005.
 
 model Party {
-  id          String   @id @default(uuid())
-  tenantId    String
-  type        String   // COMPANY | INDIVIDUAL
-  legalName   String
-  vatNumber   String?
-  createdAt   DateTime @default(now())
+  id            String   @id @default(uuid())
+  tenantId      String
+  type          String   // COMPANY | INDIVIDUAL
+  legalName     String
+  tradingName   String?
+  companyNumber String?
+  vatNumber     String?
+  email         String?
+  phone         String?
+  addressLine1  String?
+  addressLine2  String?
+  city          String?
+  postcode      String?
+  country       String?  @default("GB")
+  notes         String?
+  createdAt     DateTime @default(now())
 
-  customer    CustomerRole?
-  invoices    Invoice[]
+  customer      CustomerRole?
+  supplier      SupplierRole?
+  invoices      Invoice[]
+  quotations    Quotation[]
+  creditNotes   CreditNote[]
+  payments      Payment[]
 
   @@index([tenantId])
 }
 
 model CustomerRole {
-  id            String  @id @default(uuid())
-  tenantId      String
-  partyId       String  @unique
-  paymentTerms  Int     @default(30) // days
-  creditLimit   BigInt  @default(0)  // pence
+  id                   String  @id @default(uuid())
+  tenantId             String
+  partyId              String  @unique
+  paymentTerms         Int     @default(30) // days
+  creditLimit          BigInt  @default(0)  // pence, 0 = no limit enforced
+  // FR-PTY-011: behaviour on credit-limit breach is tenant configuration —
+  // WARN lets the invoice proceed with a flagged response, BLOCK refuses it.
+  creditLimitBehaviour String  @default("WARN") // WARN | BLOCK
 
-  party         Party   @relation(fields: [partyId], references: [id])
+  party                Party   @relation(fields: [partyId], references: [id])
+
+  @@index([tenantId])
+}
+
+// FR-PTY-013/014: supplier bank details are the highest-sensitivity Party
+// field (SEC-DAT-03 names "bank account details" explicitly) — encrypted at
+// the application level via shared/crypto/field-encryption.ts, so a database
+// compromise alone does not disclose them. A change requires re-auth and
+// raises a high-severity audit event (see suppliers.service.ts).
+model SupplierRole {
+  id                   String    @id @default(uuid())
+  tenantId             String
+  partyId              String    @unique
+  paymentTerms         Int       @default(30)
+  bankAccountNameEnc   String?
+  bankSortCodeEnc      String?
+  bankAccountNumberEnc String?
+  bankDetailsUpdatedAt DateTime?
+
+  party                Party     @relation(fields: [partyId], references: [id])
 
   @@index([tenantId])
 }
 
 // ---- Finance: products, chart of accounts, invoices, ledger ------------------
+// FR-PRD-001 to 006.
 
 model Product {
-  id            String  @id @default(uuid())
+  id            String   @id @default(uuid())
   tenantId      String
   sku           String
+  type          String   @default("SERVICE") // PRODUCT | SERVICE
   name          String
-  unitPrice     BigInt  // pence, VAT-exclusive
-  vatRatePct    Int     @default(20)
+  description   String?
+  unit          String   @default("each")
+  unitPrice     BigInt   // sales price, pence, VAT-exclusive
+  purchasePrice BigInt?  // pence, VAT-exclusive
+  vatRatePct    Int      @default(20)
+  vatTreatment  String   @default("STANDARD") // STANDARD | REDUCED | ZERO | EXEMPT | OUTSIDE_SCOPE
+  status        String   @default("ACTIVE") // ACTIVE | ARCHIVED
   createdAt     DateTime @default(now())
 
   @@unique([tenantId, sku])
@@ -222,21 +268,40 @@ model Account {
 }
 
 model Invoice {
-  id            String   @id @default(uuid())
-  tenantId      String
-  partyId       String
-  number        String?  // allocated at ISSUE, not while DRAFT
-  status        String   @default("DRAFT") // DRAFT | ISSUED
-  issueDate     DateTime?
-  currency      String   @default("GBP")
-  netTotal      BigInt   @default(0) // pence
-  vatTotal      BigInt   @default(0)
-  grossTotal    BigInt   @default(0)
-  createdAt     DateTime @default(now())
+  id                String    @id @default(uuid())
+  tenantId          String
+  partyId           String
+  number            String?   // allocated at ISSUE, not while DRAFT
+  // FR-SIN-006: DRAFT | ISSUED | PARTIALLY_PAID | PAID | CANCELLED | WRITTEN_OFF.
+  // (AWAITING_APPROVAL/APPROVED/SENT/VIEWED/OVERDUE need approval routing,
+  // outbound email and a scheduled job respectively — genuinely not built in
+  // this pass; see README.)
+  status            String    @default("DRAFT")
+  issueDate         DateTime?
+  dueDate           DateTime?
+  supplyDate        DateTime?
+  purchaseOrderRef  String?
+  notes             String?
+  terms             String?
+  currency          String    @default("GBP")
+  netTotal          BigInt    @default(0) // pence
+  vatTotal          BigInt    @default(0)
+  grossTotal        BigInt    @default(0)
+  // Denormalised running total of payment + credit-note allocations, kept in
+  // lockstep by payments.service.ts / credit-notes.service.ts inside the same
+  // transaction as the allocation write — never computed ad hoc, so it can
+  // never drift from the allocation rows it summarises.
+  allocatedTotal    BigInt    @default(0)
+  cancelledReason   String?
+  cancelledAt       DateTime?
+  sourceQuotationId String?
+  createdAt         DateTime  @default(now())
 
-  party         Party        @relation(fields: [partyId], references: [id])
+  party         Party               @relation(fields: [partyId], references: [id])
   lines         InvoiceLine[]
   ledgerEntries LedgerEntry[]
+  creditNotes   CreditNote[]
+  allocations   PaymentAllocation[]
 
   @@unique([tenantId, number])
   @@index([tenantId])
@@ -260,18 +325,143 @@ model InvoiceLine {
   @@index([tenantId])
 }
 
-model LedgerEntry {
-  id          String   @id @default(uuid())
-  tenantId    String
-  accountId   String
-  invoiceId   String?
-  debit       BigInt   @default(0) // pence
-  credit      BigInt   @default(0)
-  narrative   String
-  postedAt    DateTime @default(now())
+// FR-QUO-001 to 004.
+model Quotation {
+  id         String    @id @default(uuid())
+  tenantId   String
+  partyId    String
+  number     String?
+  status     String    @default("DRAFT") // DRAFT | SENT | ACCEPTED | DECLINED | EXPIRED
+  expiryDate DateTime?
+  netTotal   BigInt    @default(0)
+  vatTotal   BigInt    @default(0)
+  grossTotal BigInt    @default(0)
+  decidedAt  DateTime?
+  createdAt  DateTime  @default(now())
 
-  account     Account  @relation(fields: [accountId], references: [id])
-  invoice     Invoice? @relation(fields: [invoiceId], references: [id])
+  party Party           @relation(fields: [partyId], references: [id])
+  lines QuotationLine[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId])
+}
+
+model QuotationLine {
+  id          String @id @default(uuid())
+  tenantId    String
+  quotationId String
+  description String
+  quantity    Int
+  unitPrice   BigInt
+  discountPct Int    @default(0)
+  vatRatePct  Int    @default(20)
+  net         BigInt
+  vat         BigInt
+  total       BigInt
+
+  quotation Quotation @relation(fields: [quotationId], references: [id])
+
+  @@index([tenantId])
+}
+
+// FR-CRN-001 to 008: full, partial or line-level credit against an invoice,
+// or a standalone credit (invoiceId null) held on account. Always posts a
+// reversing ledger entry — never edits the original invoice's postings
+// (BR-FIN-04).
+model CreditNote {
+  id             String    @id @default(uuid())
+  tenantId       String
+  partyId        String
+  invoiceId      String?
+  number         String?
+  status         String    @default("DRAFT") // DRAFT | ISSUED
+  reasonCode     String    // RETURN | PRICING_ERROR | GOODWILL | BAD_DEBT | OTHER
+  reasonText     String
+  netTotal       BigInt    @default(0)
+  vatTotal       BigInt    @default(0)
+  grossTotal     BigInt    @default(0)
+  // How much of this credit has been applied to an invoice (or refunded) —
+  // grossTotal - allocatedTotal is what's left as unallocated credit on account.
+  allocatedTotal BigInt    @default(0)
+  issueDate      DateTime?
+  createdAt      DateTime  @default(now())
+
+  party         Party         @relation(fields: [partyId], references: [id])
+  invoice       Invoice?      @relation(fields: [invoiceId], references: [id])
+  lines         CreditNoteLine[]
+  ledgerEntries LedgerEntry[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId])
+}
+
+model CreditNoteLine {
+  id           String @id @default(uuid())
+  tenantId     String
+  creditNoteId String
+  description  String
+  quantity     Int
+  unitPrice    BigInt
+  vatRatePct   Int    @default(20)
+  net          BigInt
+  vat          BigInt
+  total        BigInt
+
+  creditNote CreditNote @relation(fields: [creditNoteId], references: [id])
+
+  @@index([tenantId])
+}
+
+// FR-ARC-003 to 006: a receipt recorded against a party, allocated across
+// one or more invoices (partial or multiple), with any unallocated remainder
+// held on account for later allocation.
+model Payment {
+  id           String   @id @default(uuid())
+  tenantId     String
+  partyId      String
+  method       String   // BANK_TRANSFER | CARD | CASH | OTHER
+  reference    String?
+  amount       BigInt   // pence, total received
+  unallocated  BigInt   // pence remaining to allocate
+  receivedDate DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  party         Party               @relation(fields: [partyId], references: [id])
+  allocations   PaymentAllocation[]
+  ledgerEntries LedgerEntry[]
+
+  @@index([tenantId])
+}
+
+model PaymentAllocation {
+  id        String @id @default(uuid())
+  tenantId  String
+  paymentId String
+  invoiceId String
+  amount    BigInt // pence allocated to this invoice
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([tenantId])
+}
+
+model LedgerEntry {
+  id           String      @id @default(uuid())
+  tenantId     String
+  accountId    String
+  invoiceId    String?
+  creditNoteId String?
+  paymentId    String?
+  debit        BigInt      @default(0) // pence
+  credit       BigInt      @default(0)
+  narrative    String
+  postedAt     DateTime    @default(now())
+
+  account    Account     @relation(fields: [accountId], references: [id])
+  invoice    Invoice?    @relation(fields: [invoiceId], references: [id])
+  creditNote CreditNote? @relation(fields: [creditNoteId], references: [id])
+  payment    Payment?    @relation(fields: [paymentId], references: [id])
 
   @@index([tenantId])
 }

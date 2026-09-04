@@ -4,43 +4,43 @@ import { useRouter } from 'next/navigation';
 import { api, ApiRequestError } from '../../lib/api';
 import { Button, Card, EmptyState, ErrorBanner, Input, LoadingState, Table, Td, Th } from '../../components/ui';
 
-export default function Customers() {
-  const [list, setList] = useState<any[] | null>(null); // null = still loading
-  const [name, setName] = useState('Acme Retail Ltd');
+export default function Suppliers() {
+  const [list, setList] = useState<any[] | null>(null);
+  const [name, setName] = useState('');
   const [error, setError] = useState('');
   const router = useRouter();
 
   async function load() {
     try {
-      setList(await api('/customers'));
+      setList(await api('/suppliers'));
     } catch (e) {
       if (e instanceof ApiRequestError && e.status === 401) { router.push('/login'); return; }
-      setError(e instanceof ApiRequestError ? e.error.message : 'Failed to load customers');
+      setError(e instanceof ApiRequestError ? e.error.message : 'Failed to load suppliers');
     }
   }
   useEffect(() => { load(); }, []);
 
   async function create() {
     try {
-      await api('/customers', { method: 'POST', body: JSON.stringify({ legalName: name }) });
+      await api('/suppliers', { method: 'POST', body: JSON.stringify({ legalName: name }) });
       setError('');
       setName('');
       load();
     } catch (e) {
       // FR-PTY-008: a possible-duplicate warning is a 409, not a hard
       // failure — this slice auto-confirms rather than showing the
-      // candidate list a fuller UI would (POST /customers already returns
+      // candidate list a fuller UI would (POST /suppliers already returns
       // them in error.details.possibleDuplicates for that future screen).
       if (e instanceof ApiRequestError && e.error.code === 'party.possible_duplicate') {
         try {
-          await api('/customers', { method: 'POST', body: JSON.stringify({ legalName: name, confirmDuplicate: true }) });
+          await api('/suppliers', { method: 'POST', body: JSON.stringify({ legalName: name, confirmDuplicate: true }) });
           setName(''); setError(''); load();
         } catch (e2) {
-          setError(e2 instanceof ApiRequestError ? e2.error.message : 'Failed to create customer');
+          setError(e2 instanceof ApiRequestError ? e2.error.message : 'Failed to create supplier');
         }
         return;
       }
-      setError(e instanceof ApiRequestError ? e.error.message : 'Failed to create customer');
+      setError(e instanceof ApiRequestError ? e.error.message : 'Failed to create supplier');
     }
   }
 
@@ -49,24 +49,29 @@ export default function Customers() {
       <Card>
         <div className="flex gap-2">
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Legal name" />
-          <Button onClick={create} disabled={!name.trim()}>Add customer</Button>
+          <Button onClick={create} disabled={!name.trim()}>Add supplier</Button>
         </div>
+        <p className="mt-2 text-xs text-slate-500">
+          Bank details can be added via the API (<code>POST /suppliers/:id/bank-details</code>) — encrypted at rest,
+          re-authentication required to change. Not yet in this screen.
+        </p>
       </Card>
 
       {error && <ErrorBanner message={error} />}
 
       {list === null ? (
-        <LoadingState label="Loading customers…" />
+        <LoadingState label="Loading suppliers…" />
       ) : list.length === 0 ? (
-        <EmptyState title="No customers yet" description="Add your first customer above to start raising invoices." />
+        <EmptyState title="No suppliers yet" description="Add your first supplier above." />
       ) : (
         <Table>
-          <thead><tr><Th>Legal name</Th><Th>ID</Th></tr></thead>
+          <thead><tr><Th>Legal name</Th><Th>Payment terms</Th><Th>Bank details</Th></tr></thead>
           <tbody>
             {list.map((p) => (
               <tr key={p.id} className="border-t border-slate-100">
                 <Td>{p.legalName}</Td>
-                <Td><span className="text-slate-400">{p.id.slice(0, 8)}</span></Td>
+                <Td>{p.supplier?.paymentTerms} days</Td>
+                <Td>{p.supplier?.hasBankDetails ? 'On file' : '—'}</Td>
               </tr>
             ))}
           </tbody>

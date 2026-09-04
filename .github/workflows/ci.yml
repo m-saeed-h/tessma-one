@@ -35,6 +35,7 @@ jobs:
       DATABASE_URL: postgresql://tessma:tessma@localhost:5432/tessma?schema=public
       APP_DATABASE_URL: postgresql://tessma_app:tessma_app@localhost:5432/tessma?schema=public
       JWT_SECRET: ci-test-secret-not-for-production
+      FIELD_ENCRYPTION_KEY: ZGV2LW9ubHktZmllbGQtZW5jcnlwdGlvbi1rZXkhISE=
       S3_ENDPOINT: http://localhost:9000
       S3_PUBLIC_ENDPOINT: http://localhost:9000
       S3_ACCESS_KEY: tessma
@@ -98,6 +99,10 @@ jobs:
       - name: Cross-tenant isolation tests — DB-layer, HTTP-layer, append-only grants
         working-directory: apps/api
         run: npm run test:e2e
+
+      - name: Stage 2 Finance MVP tests — invoicing, credit notes, payments, reports
+        working-directory: apps/api
+        run: npm run test:stage2
 
   web:
     runs-on: ubuntu-latest

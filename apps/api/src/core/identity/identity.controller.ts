@@ -10,6 +10,7 @@ import { AuditService } from '../audit/audit.service';
 import { Public } from '../permissions/permissions.decorators';
 import { validate } from '../../shared/validation/validate';
 import { loginSchema, registerSchema } from '../../shared/validation/schemas';
+import { DEFAULT_CHART_OF_ACCOUNTS } from '../../modules/finance/chart-of-accounts';
 
 const ACCESS_TOKEN_TTL = '12h';
 const COOKIE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
@@ -53,11 +54,7 @@ export class IdentityController {
         data: { tenantId: tenant.id, userId: u.id, roleId: roles['OWNER'] },
       });
       await tx.account.createMany({
-        data: [
-          { tenantId: tenant.id, code: '1100', name: 'Trade Debtors', type: 'ASSET' },
-          { tenantId: tenant.id, code: '4000', name: 'Sales', type: 'INCOME' },
-          { tenantId: tenant.id, code: '2200', name: 'Output VAT', type: 'LIABILITY' },
-        ],
+        data: DEFAULT_CHART_OF_ACCOUNTS.map((a) => ({ tenantId: tenant.id, ...a })),
       });
       await tx.numberSequence.create({ data: { tenantId: tenant.id, docType: 'INVOICE', next: 1 } });
       await this.entitlements.subscribeTenant(tx, tenant.id, 'TRIAL');

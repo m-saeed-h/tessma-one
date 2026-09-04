@@ -7,6 +7,7 @@ import { PrismaClient } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { SYSTEM_ROLES } from '../src/core/permissions/permissions.registry';
 import { SEED_PLANS } from '../src/core/subscriptions/entitlements.registry';
+import { DEFAULT_CHART_OF_ACCOUNTS } from '../src/modules/finance/chart-of-accounts';
 
 const prisma = new PrismaClient();
 
@@ -58,11 +59,7 @@ async function main() {
   });
 
   await prisma.account.createMany({
-    data: [
-      { tenantId: tenant.id, code: '1100', name: 'Trade Debtors', type: 'ASSET' },
-      { tenantId: tenant.id, code: '4000', name: 'Sales', type: 'INCOME' },
-      { tenantId: tenant.id, code: '2200', name: 'Output VAT', type: 'LIABILITY' },
-    ],
+    data: DEFAULT_CHART_OF_ACCOUNTS.map((a) => ({ tenantId: tenant.id, ...a })),
   });
   await prisma.numberSequence.create({ data: { tenantId: tenant.id, docType: 'INVOICE', next: 1 } });
   await prisma.tenantSubscription.create({

@@ -110,7 +110,7 @@ export function Table({ children }: { children: ReactNode }) {
   );
 }
 
-export function Th({ children, align = 'left' }: { children: ReactNode; align?: 'left' | 'right' }) {
+export function Th({ children, align = 'left' }: { children?: ReactNode; align?: 'left' | 'right' }) {
   return (
     <th className={`bg-slate-50 px-4 py-2 font-medium text-slate-600 ${align === 'right' ? 'text-right' : 'text-left'}`}>
       {children}
@@ -118,6 +118,6 @@ export function Th({ children, align = 'left' }: { children: ReactNode; align?: 
   );
 }
 
-export function Td({ children, align = 'left' }: { children: ReactNode; align?: 'left' | 'right' }) {
+export function Td({ children, align = 'left' }: { children?: ReactNode; align?: 'left' | 'right' }) {
   return <td className={`px-4 py-2 ${align === 'right' ? 'text-right' : 'text-left'}`}>{children}</td>;
 }

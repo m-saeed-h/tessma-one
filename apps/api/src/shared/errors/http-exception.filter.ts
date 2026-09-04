@@ -48,6 +48,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
       status = HttpStatus.NOT_FOUND;
       code = 'not_found';
       message = 'The requested resource was not found.';
+    } else if (exception instanceof Prisma.PrismaClientKnownRequestError && exception.code === 'P2002') {
+      // Unique constraint violation (SKU, document number, email, ...) — a
+      // conflict with existing data, not a server fault.
+      status = HttpStatus.CONFLICT;
+      code = 'conflict';
+      const target = (exception.meta?.target as string[] | undefined)?.join(', ');
+      message = target ? `A record with this ${target} already exists.` : 'This conflicts with an existing record.';
     } else {
       // Unknown/unexpected error: log full detail server-side, tell the client nothing.
       this.logger.error(exception instanceof Error ? exception.stack : String(exception));

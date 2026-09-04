@@ -1,11 +1,15 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { AuditService } from '../../core/audit/audit.service';
 import { NotificationsService } from '../../core/notifications/notifications.service';
+import { NumberingService } from '../../shared/numbering/numbering.service';
 import { computeLine, penceToGBP } from '../../shared/money/money';
 
 interface LineInput { description: string; quantity: number; unitPrice: number; discountPct?: number; vatRatePct?: number; }
+interface DraftInput {
+  purchaseOrderRef?: string; notes?: string; terms?: string; dueInDays?: number;
+}
 
 @Injectable()
 export class FinanceService {
@@ -13,10 +17,11 @@ export class FinanceService {
     private prisma: PrismaService,
     private audit: AuditService,
     private notifications: NotificationsService,
+    private numbering: NumberingService,
   ) {}
 
   // Create an editable DRAFT. No number is allocated yet, nothing is posted.
-  async createDraft(tenantId: string, userId: string, partyId: string, lines: LineInput[]) {
+  async createDraft(tenantId: string, userId: string, partyId: string, lines: LineInput[], extra: DraftInput = {}) {
     return this.prisma.forTenant(tenantId, async (tx) => {
       const computed = lines.map((l) => {
         const r = computeLine({
@@ -31,6 +36,7 @@ export class FinanceService {
         data: {
           tenantId, partyId, status: 'DRAFT',
           netTotal, vatTotal, grossTotal: netTotal + vatTotal,
+          purchaseOrderRef: extra.purchaseOrderRef, notes: extra.notes, terms: extra.terms,
           lines: {
             create: computed.map((l) => ({
               tenantId, description: l.description, quantity: l.quantity,
@@ -41,18 +47,36 @@ export class FinanceService {
         },
         include: { lines: true },
       });
-      return invoice;
+      return { ...invoice, dueInDaysRequested: extra.dueInDays };
     });
   }
 
   // Issue: allocate a gap-free number, post a BALANCED double-entry, write audit,
   // and lock the invoice. This is the one-way door — after this it is immutable.
-  async issue(tenantId: string, userId: string, invoiceId: string) {
+  async issue(tenantId: string, userId: string, invoiceId: string, dueInDays?: number) {
     return this.prisma.forTenant(tenantId, async (tx) => {
       const invoice = await tx.invoice.findUniqueOrThrow({ where: { id: invoiceId } });
-      if (invoice.status !== 'DRAFT') throw new BadRequestException('Only a draft can be issued');
+      if (invoice.status !== 'DRAFT') throw new BadRequestException({ code: 'invoice.not_draft', message: 'Only a draft can be issued.' });
 
-      const number = await this.allocateNumber(tx, tenantId);
+      // FR-PTY-011: credit limit is checked at issue, not at draft — a draft
+      // is just working notes, issuing is the commitment.
+      const customer = await tx.customerRole.findUnique({ where: { partyId: invoice.partyId } });
+      let creditWarning: string | undefined;
+      if (customer && customer.creditLimit > 0n) {
+        const outstanding = await this.outstandingBalance(tx, invoice.partyId, invoiceId);
+        const projected = outstanding + invoice.grossTotal;
+        if (projected > customer.creditLimit) {
+          if (customer.creditLimitBehaviour === 'BLOCK') {
+            throw new ForbiddenException({
+              code: 'invoice.credit_limit_exceeded',
+              message: `Issuing this invoice would take the customer to ${penceToGBP(projected)}, over their ${penceToGBP(customer.creditLimit)} credit limit.`,
+            });
+          }
+          creditWarning = `Customer is now over their credit limit (${penceToGBP(projected)} of ${penceToGBP(customer.creditLimit)}).`;
+        }
+      }
+
+      const number = await this.numbering.allocate(tx, tenantId, 'INVOICE', 'INV');
       const accounts = await tx.account.findMany({ where: { tenantId } });
       const acc = (code: string) => {
         const a = accounts.find((x) => x.code === code);
@@ -73,9 +97,14 @@ export class FinanceService {
       await tx.ledgerEntry.createMany({
         data: entries.map((e) => ({ ...e, tenantId, invoiceId })),
       });
+
+      const days = dueInDays ?? customer?.paymentTerms ?? 30;
+      const issueDate = new Date();
+      const dueDate = new Date(issueDate.getTime() + days * 24 * 60 * 60 * 1000);
+
       const issued = await tx.invoice.update({
         where: { id: invoiceId },
-        data: { status: 'ISSUED', number, issueDate: new Date() },
+        data: { status: 'ISSUED', number, issueDate, dueDate },
       });
       await this.audit.write(tx, {
         tenantId, userId, action: 'invoice.issued', resourceType: 'Invoice',
@@ -84,21 +113,72 @@ export class FinanceService {
       await this.notifications.send(
         tx, tenantId, userId, 'IN_APP',
         `Invoice ${number} issued`,
-        `Invoice ${number} for ${penceToGBP(issued.grossTotal)} was issued and posted to the ledger.`,
+        creditWarning
+          ? `Invoice ${number} for ${penceToGBP(issued.grossTotal)} was issued. ${creditWarning}`
+          : `Invoice ${number} for ${penceToGBP(issued.grossTotal)} was issued and posted to the ledger.`,
       );
-      return issued;
+      return { ...issued, creditWarning };
     });
   }
 
-  // Atomic UPDATE ... RETURNING guarantees no two concurrent issues get the same number.
-  private async allocateNumber(tx: Prisma.TransactionClient, tenantId: string): Promise<string> {
-    const rows = await tx.$queryRawUnsafe<{ next: number }[]>(
-      `UPDATE "NumberSequence" SET "next" = "next" + 1
-       WHERE "tenantId" = $1 AND "docType" = 'INVOICE' RETURNING "next" - 1 AS next`,
-      tenantId,
+  // FR-SIN-008: cancellation only with a mandatory reason, generating a
+  // reversing ledger posting. Only clean of any payment/credit allocation —
+  // an invoice with real money already applied to it is corrected with a
+  // credit note, not erased with cancel.
+  async cancel(tenantId: string, userId: string, invoiceId: string, reason: string) {
+    return this.prisma.forTenant(tenantId, async (tx) => {
+      const invoice = await tx.invoice.findUniqueOrThrow({ where: { id: invoiceId } });
+      if (invoice.status !== 'ISSUED') {
+        throw new BadRequestException({ code: 'invoice.not_cancellable', message: 'Only an issued, unpaid invoice can be cancelled.' });
+      }
+      if (invoice.allocatedTotal > 0n) {
+        throw new BadRequestException({
+          code: 'invoice.has_allocations',
+          message: 'This invoice has payments or credits applied — use a credit note instead of cancelling.',
+        });
+      }
+
+      const originalEntries = await tx.ledgerEntry.findMany({ where: { invoiceId } });
+      await tx.ledgerEntry.createMany({
+        data: originalEntries.map((e) => ({
+          tenantId, invoiceId, accountId: e.accountId,
+          debit: e.credit, credit: e.debit, // reversed
+          narrative: `Cancellation of invoice ${invoice.number}: ${reason}`,
+        })),
+      });
+
+      const cancelled = await tx.invoice.update({
+        where: { id: invoiceId },
+        data: { status: 'CANCELLED', cancelledReason: reason, cancelledAt: new Date() },
+      });
+      await this.audit.write(tx, {
+        tenantId, userId, action: 'invoice.cancelled', resourceType: 'Invoice',
+        resourceId: invoiceId, before: { status: 'ISSUED' }, after: { status: 'CANCELLED', reason },
+      });
+      return cancelled;
+    });
+  }
+
+  async get(tenantId: string, invoiceId: string) {
+    return this.prisma.forTenant(tenantId, (tx) =>
+      tx.invoice.findUniqueOrThrow({ where: { id: invoiceId }, include: { lines: true, party: true } }),
     );
-    const n = rows[0].next;
-    return `INV-${String(n).padStart(5, '0')}`;
+  }
+
+  async list(tenantId: string, partyId?: string) {
+    return this.prisma.forTenant(tenantId, (tx) =>
+      tx.invoice.findMany({ where: partyId ? { partyId } : undefined, orderBy: { createdAt: 'desc' } }),
+    );
+  }
+
+  // Sum of gross-minus-allocated across every non-cancelled, non-draft
+  // invoice for a party, excluding the invoice currently being issued (which
+  // isn't posted yet at the point this is called).
+  private async outstandingBalance(tx: Prisma.TransactionClient, partyId: string, excludeInvoiceId: string): Promise<bigint> {
+    const invoices = await tx.invoice.findMany({
+      where: { partyId, status: { in: ['ISSUED', 'PARTIALLY_PAID'] }, id: { not: excludeInvoiceId } },
+    });
+    return invoices.reduce((s, i) => s + (i.grossTotal - i.allocatedTotal), 0n);
   }
 
   async trialBalance(tenantId: string) {
