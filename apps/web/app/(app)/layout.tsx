@@ -16,7 +16,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <Sidebar productName={branding.productName} logoUrl={branding.logoUrl}>
         <NavItem href="/">Dashboard</NavItem>
         <NavSection>Finance</NavSection>
+        <NavItem href="/quotations">Quotations</NavItem>
         <NavItem href="/invoices">Invoices</NavItem>
+        <NavItem href="/credit-notes">Credit notes</NavItem>
+        <NavItem href="/payments">Payments</NavItem>
+        <NavItem href="/receivables">Aged receivables</NavItem>
         <NavItem href="/customers">Customers</NavItem>
         <NavItem href="/suppliers">Suppliers</NavItem>
         <NavItem href="/products">Products</NavItem>

@@ -104,7 +104,11 @@ export class QuotationsService {
 
   async list(tenantId: string, partyId?: string) {
     return this.prisma.forTenant(tenantId, (tx) =>
-      tx.quotation.findMany({ where: partyId ? { partyId } : undefined, orderBy: { createdAt: 'desc' } }),
+      tx.quotation.findMany({
+        where: partyId ? { partyId } : undefined,
+        include: { party: true, lines: true },
+        orderBy: { createdAt: 'desc' },
+      }),
     );
   }
 }

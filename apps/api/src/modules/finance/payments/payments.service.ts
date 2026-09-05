@@ -109,11 +109,13 @@ export class PaymentsService {
     return updatedPayment;
   }
 
+  // Includes party (name) and each allocation's invoice (number) — the UI
+  // renders "£60 to INV-00002", not raw ids.
   async list(tenantId: string, partyId?: string) {
     return this.prisma.forTenant(tenantId, (tx) =>
       tx.payment.findMany({
         where: partyId ? { partyId } : undefined,
-        include: { allocations: true },
+        include: { party: true, allocations: { include: { invoice: true } } },
         orderBy: { createdAt: 'desc' },
       }),
     );

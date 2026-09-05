@@ -120,7 +120,11 @@ export class CreditNotesService {
 
   async list(tenantId: string, partyId?: string) {
     return this.prisma.forTenant(tenantId, (tx) =>
-      tx.creditNote.findMany({ where: partyId ? { partyId } : undefined, orderBy: { createdAt: 'desc' } }),
+      tx.creditNote.findMany({
+        where: partyId ? { partyId } : undefined,
+        include: { party: true, lines: true },
+        orderBy: { createdAt: 'desc' },
+      }),
     );
   }
 }
