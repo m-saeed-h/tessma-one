@@ -1,9 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, ApiRequestError } from '../../lib/api';
-import { Button, Card, Cell, DataTable, EmptyState, ErrorBanner, Input, LoadingState, Row } from '../../components/ui';
-import { PageHead } from '../../components/shell';
+import { api, ApiRequestError } from '../../../lib/api';
+import { Button, Card, Cell, DataTable, EmptyState, ErrorBanner, Input, LoadingState, Row } from '../../../components/ui';
+import { PageHead } from '../../../components/shell';
 
 const COLUMNS = '1fr 200px';
 

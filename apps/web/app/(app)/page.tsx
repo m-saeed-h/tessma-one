@@ -1,9 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, ApiRequestError } from '../lib/api';
-import { Card, ErrorBanner, LoadingState, Metric, MetricStrip } from '../components/ui';
-import { PageHead } from '../components/shell';
+import { api, ApiRequestError } from '../../lib/api';
+import { Card, ErrorBanner, LoadingState, Metric, MetricStrip } from '../../components/ui';
+import { PageHead } from '../../components/shell';
 
 const gbp = (pence: string) => {
   const n = Number(pence) / 100;

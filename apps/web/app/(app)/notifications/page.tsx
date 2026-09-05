@@ -1,9 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, ApiRequestError } from '../../lib/api';
-import { Button, Card, EmptyState, ErrorBanner, LoadingState, StatusPill } from '../../components/ui';
-import { PageHead } from '../../components/shell';
+import { api, ApiRequestError } from '../../../lib/api';
+import { Button, Card, EmptyState, ErrorBanner, LoadingState, StatusPill } from '../../../components/ui';
+import { PageHead } from '../../../components/shell';
 
 export default function Notifications() {
   const [list, setList] = useState<any[] | null>(null);

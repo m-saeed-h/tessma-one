@@ -1,9 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, ApiRequestError } from '../../lib/api';
-import { Button, Card, ErrorBanner, FormField, Input, LoadingState } from '../../components/ui';
-import { PageHead } from '../../components/shell';
+import { api, ApiRequestError } from '../../../lib/api';
+import { Button, Card, ErrorBanner, FormField, Input, LoadingState } from '../../../components/ui';
+import { PageHead } from '../../../components/shell';
 
 interface FinanceProfile {
   legalName: string | null; addressLine1: string | null; addressLine2: string | null;

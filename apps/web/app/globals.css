@@ -117,6 +117,11 @@ body {
   color: var(--primary-ink); display: flex; align-items: center; justify-content: center;
   font-weight: 600; font-size: 13px;
 }
+.topbar-logout {
+  background: none; border: none; color: var(--slate); font-family: inherit; font-size: 13px;
+  font-weight: 500; cursor: pointer; padding: 6px 4px;
+}
+.topbar-logout:hover { color: var(--danger); }
 
 /* ---------- Work area ---------- */
 .work { padding: var(--s6); }
@@ -127,6 +132,52 @@ body {
 .page-head { display: flex; align-items: baseline; gap: var(--s3); margin-bottom: var(--s5); }
 .page-head h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.4px; }
 .page-head .sub { color: var(--slate); font-size: 13px; }
+
+/* ---------- Auth screens (sign in / sign up) — deliberately outside the
+   app shell: an anonymous visitor has no sidebar to navigate. ---------- */
+.auth-shell { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 4fr); background: var(--paper); }
+@media (max-width: 900px) { .auth-shell { grid-template-columns: 1fr; } }
+
+.auth-brand {
+  background: linear-gradient(160deg, var(--primary) 0%, var(--primary-ink) 100%);
+  color: #fff; display: flex; flex-direction: column; justify-content: space-between;
+  padding: var(--s7); position: relative; overflow: hidden;
+}
+@media (max-width: 900px) { .auth-brand { display: none; } }
+.auth-brand-top { display: flex; align-items: center; gap: var(--s3); position: relative; z-index: 1; }
+.auth-brand-mark {
+  width: 40px; height: 40px; border-radius: var(--r-md); background: rgba(255, 255, 255, .16);
+  display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; flex: none;
+}
+.auth-brand-name { font-size: 16px; font-weight: 600; }
+.auth-brand-mid { max-width: 440px; position: relative; z-index: 1; }
+.auth-brand-mid h1 { font-size: 34px; line-height: 1.28; font-weight: 600; letter-spacing: -0.5px; margin-bottom: var(--s4); }
+.auth-brand-mid p { font-size: 15px; opacity: .82; line-height: 1.6; }
+.auth-feature-list { margin-top: var(--s6); display: grid; gap: var(--s3); }
+.auth-feature { display: flex; align-items: flex-start; gap: var(--s3); font-size: 14px; opacity: .95; }
+.auth-feature .dot {
+  width: 20px; height: 20px; border-radius: var(--r-pill); background: rgba(255, 255, 255, .18); flex: none;
+  display: flex; align-items: center; justify-content: center; font-size: 11px; margin-top: 1px;
+}
+.auth-brand-bottom { font-size: 12px; opacity: .55; position: relative; z-index: 1; }
+/* A soft decorative glow, purely visual — never carries information. */
+.auth-brand::after {
+  content: ''; position: absolute; width: 480px; height: 480px; border-radius: 999px;
+  background: rgba(255, 255, 255, .06); right: -160px; bottom: -180px; pointer-events: none;
+}
+
+.auth-form-panel { display: flex; align-items: center; justify-content: center; padding: var(--s6); }
+.auth-card { width: 100%; max-width: 380px; }
+.auth-mobile-brand { display: none; align-items: center; gap: 10px; margin-bottom: var(--s6); justify-content: center; }
+@media (max-width: 900px) { .auth-mobile-brand { display: flex; } }
+.auth-card-head { margin-bottom: var(--s6); }
+.auth-card-head h2 { font-size: 22px; font-weight: 600; letter-spacing: -0.3px; margin-bottom: 6px; }
+.auth-card-head p { font-size: 14px; color: var(--slate); }
+.auth-form { display: grid; gap: var(--s4); }
+.auth-switch { margin-top: var(--s5); text-align: center; font-size: 14px; color: var(--slate); }
+.auth-switch a { color: var(--primary); font-weight: 500; text-decoration: none; }
+.auth-switch a:hover { text-decoration: underline; }
+.auth-terms { margin-top: var(--s6); text-align: center; font-size: 12px; color: var(--muted); }
 
 .btn {
   height: 38px; padding: 0 var(--s4); border-radius: var(--r-md); border: 1px solid var(--line);

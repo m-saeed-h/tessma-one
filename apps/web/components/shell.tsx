@@ -3,7 +3,9 @@
 // layout.tsx; pages only ever render into <main class="work">.
 'use client';
 import type { ReactNode } from 'react';
-import { usePathname } from 'next/navigation';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { api } from '../lib/api';
 
 export function AppShell({ children }: { children: ReactNode }) {
   return <div className="app">{children}</div>;
@@ -44,10 +46,10 @@ export function NavItem({ href, locked, children }: { href?: string; locked?: bo
     );
   }
   return (
-    <a href={href} className={className}>
+    <Link href={href} className={className}>
       <span className="dot" />
       {children}
-    </a>
+    </Link>
   );
 }
 
@@ -56,12 +58,21 @@ export function Main({ children }: { children: ReactNode }) {
 }
 
 export function Topbar({ tenantName, avatarInitials, children }: { tenantName: string; avatarInitials: string; children?: ReactNode }) {
+  const router = useRouter();
+
+  async function logout() {
+    try { await api('/auth/logout', { method: 'POST' }); } catch { /* clearing cookies server-side is best-effort; navigating away is what actually matters */ }
+    router.push('/login');
+    router.refresh();
+  }
+
   return (
     <div className="topbar">
       <div className="search">Search invoices, customers, references…</div>
       {children}
       <div className="tenant-pill"><span className="swatch" />{tenantName}</div>
       <div className="avatar">{avatarInitials}</div>
+      <button type="button" className="topbar-logout" onClick={logout}>Log out</button>
     </div>
   );
 }
