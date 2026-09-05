@@ -63,6 +63,17 @@ banking, VAT/MTD and multi-currency are not (see "What Stage 2 does not cover" b
   `PARTIALLY_PAID` → `PAID` as it goes.
 - **Aged receivables report**, bucketed by days overdue relative to each invoice's due date,
   using outstanding (not original) balance.
+- **Invoice PDF, email delivery and duplication** (FR-SIN-009/010/011/012/013). A branded VAT
+  invoice PDF renders from the tenant's own legal/VAT profile (`TenantFinanceProfile` —
+  `GET`/`PUT /finance/settings`); a draft renders as a clearly marked preview, not a tax invoice,
+  since it has no allocated number yet. Emailing to a customer (to/cc/bcc/subject/body) is real
+  end to end — the PDF is genuinely generated and would genuinely be attached — through a
+  dev-mode transport that logs instead of sending; DELIVERED/OPENED/BOUNCED need a real ESP's
+  webhooks and are declared but unreachable, same as SMS/PUSH below. The org-level default
+  payment-terms setting is now actually reachable: `CustomerRole.paymentTerms` used to be
+  hard-coded to 30 at party-creation time, which silently defeated any org-level default —
+  fixed to be nullable so the fallback chain (per-document → per-customer → org default → 30)
+  is real.
 
 ### What Stage 2 does not cover yet
 
@@ -73,9 +84,9 @@ online-payment surface (blocked on a payment-provider decision, not a code gap).
 Charter Phase 3/4 scope, or explicitly deferred within Phase 2 — see the Finance spec's own
 suggested MVP cut (§9.1).
 
-UI-wise: customers, suppliers, products, invoices and notifications have screens. Quotations,
-credit notes, payments and the aged receivables report are fully built and tested at the API
-layer but have no screen yet — the next UI increment, not a backend gap.
+UI-wise: customers, suppliers, products, invoices, notifications and finance settings have
+screens. Quotations, credit notes, payments and the aged receivables report are fully built and
+tested at the API layer but have no screen yet — the next UI increment, not a backend gap.
 
 **What the demo does:** log in → create a customer → raise an invoice with exact-penny maths
 (BigInt throughout — never a floating-point cent) → **issue** it (allocates a gap-free number,
@@ -152,9 +163,10 @@ cd apps/web && npm run dev
                                         # real object storage, workflow, notifications, AI Gateway
    npm run test:stage2                 # full invoice lifecycle, quotations, credit notes
                                         # (including the bad-debt posting), payment allocation,
-                                        # aged receivables, encrypted supplier bank details
+                                        # aged receivables, encrypted supplier bank details,
+                                        # invoice PDF/email delivery, finance settings
    ```
-   All of it runs in CI (`.github/workflows/ci.yml`) on every push — 45 tests across 16 suites.
+   All of it runs in CI (`.github/workflows/ci.yml`) on every push — 51 tests across 18 suites.
 
 ---
 
@@ -173,6 +185,7 @@ cd apps/web && npm run dev
 | Reversing postings — credit notes, incl. the bad-debt account switch | `apps/api/src/modules/finance/credit-notes/credit-notes.service.ts` |
 | Payment recording + allocation, invoice status transitions | `apps/api/src/modules/finance/payments/payments.service.ts` |
 | Aged receivables (bucketed, outstanding not original balance) | `apps/api/src/modules/finance/reports/reports.service.ts` |
+| Branded VAT-invoice PDF + customer email delivery | `apps/api/src/modules/finance/pdf/` |
 | Duplicate-party detection as a real two-step contract | `apps/api/src/core/party/duplicate-detection.ts` |
 | Append-only audit, with actor typing for future partner access | `apps/api/src/core/audit/audit.service.ts` |
 | Cross-tenant build-blockers (three angles) | `apps/api/test/cross-tenant.e2e-spec.ts`, `test/http-cross-tenant.e2e-spec.ts`, `test/append-only.e2e-spec.ts` |
