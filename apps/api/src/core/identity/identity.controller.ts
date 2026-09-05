@@ -92,8 +92,14 @@ export class IdentityController {
   @Public()
   @Post('logout')
   logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie('tsm_at', { path: '/' });
-    res.clearCookie('tsm_csrf', { path: '/' });
+    // Browsers match a clearing Set-Cookie by name+path+domain, but some also
+    // require SameSite/Secure to match the cookie being cleared, so mirror
+    // setSessionCookies' attributes here rather than assuming defaults work.
+    const crossSite = process.env.COOKIE_CROSS_SITE === 'true';
+    const sameSite = crossSite ? ('none' as const) : ('lax' as const);
+    const secure = crossSite || process.env.NODE_ENV === 'production';
+    res.clearCookie('tsm_at', { path: '/', sameSite, secure });
+    res.clearCookie('tsm_csrf', { path: '/', sameSite, secure });
     return { ok: true };
   }
 
@@ -121,10 +127,17 @@ export class IdentityController {
   }
 
   private setSessionCookies(res: Response, session: { token: string; csrf: string }) {
-    const secure = process.env.NODE_ENV === 'production';
+    // Deployments where the web app and API share a site (same host, or just
+    // different ports as in local dev) can use SameSite=Lax. Split-domain
+    // deployments (e.g. Vercel + Railway) are cross-site as far as the browser
+    // is concerned, so the cookie needs SameSite=None — which browsers refuse
+    // to store at all unless Secure is also set, hence tying the two together.
+    const crossSite = process.env.COOKIE_CROSS_SITE === 'true';
+    const sameSite = crossSite ? ('none' as const) : ('lax' as const);
+    const secure = crossSite || process.env.NODE_ENV === 'production';
     // httpOnly access token: never readable by page script (SEC-IAM-03).
-    res.cookie('tsm_at', session.token, { httpOnly: true, sameSite: 'lax', secure, maxAge: COOKIE_MAX_AGE_MS, path: '/' });
+    res.cookie('tsm_at', session.token, { httpOnly: true, sameSite, secure, maxAge: COOKIE_MAX_AGE_MS, path: '/' });
     // Readable CSRF cookie: the double-submit half of CsrfGuard (SEC-APP-04).
-    res.cookie('tsm_csrf', session.csrf, { httpOnly: false, sameSite: 'lax', secure, maxAge: COOKIE_MAX_AGE_MS, path: '/' });
+    res.cookie('tsm_csrf', session.csrf, { httpOnly: false, sameSite, secure, maxAge: COOKIE_MAX_AGE_MS, path: '/' });
   }
 }
