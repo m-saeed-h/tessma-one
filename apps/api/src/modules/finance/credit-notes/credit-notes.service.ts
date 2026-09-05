@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../shared/prisma/prisma.service';
 import { AuditService } from '../../../core/audit/audit.service';
 import { NumberingService } from '../../../shared/numbering/numbering.service';
+import { PeriodsService } from '../../../shared/periods/periods.service';
 import { computeLine, penceToGBP } from '../../../shared/money/money';
 
 interface LineInput { description: string; quantity: number; unitPrice: number; vatRatePct?: number; }
@@ -11,7 +12,10 @@ interface CreateInput {
 
 @Injectable()
 export class CreditNotesService {
-  constructor(private prisma: PrismaService, private audit: AuditService, private numbering: NumberingService) {}
+  constructor(
+    private prisma: PrismaService, private audit: AuditService,
+    private numbering: NumberingService, private periods: PeriodsService,
+  ) {}
 
   // FR-CRN-001 to 005: full, partial or line-level credit note against an
   // invoice, or standalone. Always posts a reversing ledger entry — the
@@ -66,6 +70,7 @@ export class CreditNotesService {
       const credits = entries.reduce((s, e) => s + e.credit, 0n);
       if (debits !== credits) throw new Error('Ledger not balanced — refusing to post');
 
+      await this.periods.assertPeriodOpen(tx, tenantId, new Date());
       await tx.ledgerEntry.createMany({
         data: entries.map((e) => ({ ...e, tenantId, creditNoteId: creditNote.id })),
       });

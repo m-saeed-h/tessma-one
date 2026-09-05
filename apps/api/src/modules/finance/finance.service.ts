@@ -5,6 +5,7 @@ import { AuditService } from '../../core/audit/audit.service';
 import { NotificationsService } from '../../core/notifications/notifications.service';
 import { BrandingService } from '../../core/branding/branding.service';
 import { NumberingService } from '../../shared/numbering/numbering.service';
+import { PeriodsService } from '../../shared/periods/periods.service';
 import { computeLine, penceToGBP } from '../../shared/money/money';
 import { InvoicePdfService } from './pdf/invoice-pdf.service';
 import { ConsoleInvoiceEmailProvider } from './pdf/invoice-email.provider';
@@ -25,6 +26,7 @@ export class FinanceService {
     private notifications: NotificationsService,
     private branding: BrandingService,
     private numbering: NumberingService,
+    private periods: PeriodsService,
     private pdf: InvoicePdfService,
     private emailProvider: ConsoleInvoiceEmailProvider,
   ) {}
@@ -103,6 +105,7 @@ export class FinanceService {
       const credits = entries.reduce((s, e) => s + e.credit, 0n);
       if (debits !== credits) throw new Error('Ledger not balanced — refusing to post');
 
+      await this.periods.assertPeriodOpen(tx, tenantId, new Date());
       await tx.ledgerEntry.createMany({
         data: entries.map((e) => ({ ...e, tenantId, invoiceId })),
       });
@@ -148,6 +151,7 @@ export class FinanceService {
         });
       }
 
+      await this.periods.assertPeriodOpen(tx, tenantId, new Date());
       const originalEntries = await tx.ledgerEntry.findMany({ where: { invoiceId } });
       await tx.ledgerEntry.createMany({
         data: originalEntries.map((e) => ({

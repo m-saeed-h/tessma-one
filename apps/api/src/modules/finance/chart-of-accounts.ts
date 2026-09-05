@@ -6,7 +6,11 @@
 export const DEFAULT_CHART_OF_ACCOUNTS = [
   { code: '1100', name: 'Trade Debtors', type: 'ASSET' },
   { code: '1200', name: 'Bank Current Account', type: 'ASSET' },
-  { code: '4000', name: 'Sales', type: 'INCOME' },
+  { code: '1300', name: 'VAT Recoverable', type: 'ASSET' },
+  { code: '2100', name: 'Trade Creditors', type: 'LIABILITY' },
+  { code: '2110', name: 'Employee Expenses Payable', type: 'LIABILITY' },
   { code: '2200', name: 'Output VAT', type: 'LIABILITY' },
+  { code: '4000', name: 'Sales', type: 'INCOME' },
+  { code: '6000', name: 'General Expenses', type: 'EXPENSE' },
   { code: '7900', name: 'Bad Debt Write-off', type: 'EXPENSE' },
 ] as const;

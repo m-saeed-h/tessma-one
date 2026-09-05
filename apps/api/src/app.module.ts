@@ -43,6 +43,19 @@ import { FinanceSettingsController } from './modules/finance/settings/settings.c
 import { FinanceSettingsService } from './modules/finance/settings/settings.service';
 import { InvoicePdfService } from './modules/finance/pdf/invoice-pdf.service';
 import { ConsoleInvoiceEmailProvider } from './modules/finance/pdf/invoice-email.provider';
+import { PeriodsService } from './shared/periods/periods.service';
+import { PeriodsController } from './modules/finance/periods/periods.controller';
+import { JournalsController } from './modules/finance/journals/journals.controller';
+import { JournalsService } from './modules/finance/journals/journals.service';
+import { IdempotencyService } from './shared/idempotency/idempotency.service';
+import { ExpensesController } from './modules/finance/expenses/expenses.controller';
+import { ExpensesService } from './modules/finance/expenses/expenses.service';
+import { PurchaseInvoicesController } from './modules/finance/purchase-invoices/purchase-invoices.controller';
+import { PurchaseInvoicesService } from './modules/finance/purchase-invoices/purchase-invoices.service';
+import { SupplierPaymentsController } from './modules/finance/supplier-payments/supplier-payments.controller';
+import { SupplierPaymentsService } from './modules/finance/supplier-payments/supplier-payments.service';
+import { AccountsController } from './modules/finance/accounts/accounts.controller';
+import { AccountsService } from './modules/finance/accounts/accounts.service';
 
 @Module({
   imports: [JwtModule.register({})],
@@ -63,6 +76,12 @@ import { ConsoleInvoiceEmailProvider } from './modules/finance/pdf/invoice-email
     PaymentsController,
     ReportsController,
     FinanceSettingsController,
+    PeriodsController,
+    JournalsController,
+    ExpensesController,
+    PurchaseInvoicesController,
+    SupplierPaymentsController,
+    AccountsController,
   ],
   providers: [
     PrismaService,
@@ -87,6 +106,13 @@ import { ConsoleInvoiceEmailProvider } from './modules/finance/pdf/invoice-email
     FinanceSettingsService,
     InvoicePdfService,
     ConsoleInvoiceEmailProvider,
+    PeriodsService,
+    JournalsService,
+    IdempotencyService,
+    ExpensesService,
+    PurchaseInvoicesService,
+    SupplierPaymentsService,
+    AccountsService,
     // Global guards run in registration order, deny by default:
     // 1. AuthGuard      — who are you (token, from cookie or header only)
     // 2. CsrfGuard       — for cookie-authenticated mutations, prove same-origin

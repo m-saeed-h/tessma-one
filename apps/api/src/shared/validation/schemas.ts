@@ -121,6 +121,17 @@ export const financeProfileSchema = z.object({
   companyNumber: z.string().trim().max(30).optional(),
   footerText: z.string().trim().max(1000).optional(),
   defaultPaymentTermsDays: z.number().int().min(0).max(365).optional(),
+  baseCurrency: z.string().trim().length(3).toUpperCase().optional(),
+  accountingBasis: z.enum(['ACCRUAL', 'CASH']).optional(),
+  financialYearStartMonth: z.number().int().min(1).max(12).optional(),
+  financialYearStartDay: z.number().int().min(1).max(31).optional(),
+});
+
+export const numberingSchemeSchema = z.object({
+  prefix: z.string().trim().max(10).optional(),
+  suffix: z.string().trim().max(10).optional(),
+  useYearToken: z.boolean().optional(),
+  padding: z.number().int().min(1).max(10).optional(),
 });
 
 export const createQuotationSchema = z.object({

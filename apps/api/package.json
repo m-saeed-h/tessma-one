@@ -9,14 +9,15 @@
     "test": "jest test/calculation.spec.ts",
     "test:e2e": "jest test/cross-tenant.e2e-spec.ts test/http-cross-tenant.e2e-spec.ts test/append-only.e2e-spec.ts test/documents.e2e-spec.ts test/notifications.e2e-spec.ts test/workflow.e2e-spec.ts test/ai-gateway.e2e-spec.ts",
     "test:rbac": "jest test/permissions.e2e-spec.ts",
-    "test:stage2": "jest test/products-suppliers.e2e-spec.ts test/invoice-lifecycle.e2e-spec.ts test/quotations.e2e-spec.ts test/credit-notes.e2e-spec.ts test/payments.e2e-spec.ts test/reports.e2e-spec.ts test/party-duplicate-detection.e2e-spec.ts test/invoice-metrics.e2e-spec.ts test/invoice-pdf-and-delivery.e2e-spec.ts",
+    "test:stage2": "jest test/products-suppliers.e2e-spec.ts test/invoice-lifecycle.e2e-spec.ts test/quotations.e2e-spec.ts test/credit-notes.e2e-spec.ts test/payments.e2e-spec.ts test/reports.e2e-spec.ts test/party-duplicate-detection.e2e-spec.ts test/invoice-metrics.e2e-spec.ts test/invoice-pdf-and-delivery.e2e-spec.ts test/periods-journals-expenses-ap.e2e-spec.ts",
     "test:all": "jest",
     "prisma:generate": "prisma generate",
     "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:rls": "prisma db execute --file prisma/rls.sql --schema prisma/schema.prisma",
-    "db:setup": "prisma migrate deploy && npm run seed && npm run db:rls"
+    "db:setup": "prisma migrate deploy && npm run seed && npm run db:rls",
+    "start:railway": "npm run db:setup && npm run start:prod"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.658.1",

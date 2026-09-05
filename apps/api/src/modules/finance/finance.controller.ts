@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, Req, Res, StreamableFile } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Post, Query, Req, Res, StreamableFile } from '@nestjs/common';
 import type { Response } from 'express';
 import { z } from 'zod';
 import { RequirePermissions } from '../../core/permissions/permissions.decorators';
@@ -8,6 +8,7 @@ import { FEATURE_KEYS } from '../../core/subscriptions/entitlements.registry';
 import { validate } from '../../shared/validation/validate';
 import { cancelInvoiceSchema, createInvoiceDraftSchema, sendInvoiceSchema } from '../../shared/validation/schemas';
 import { serialise } from '../../shared/http/serialise';
+import { IdempotencyService } from '../../shared/idempotency/idempotency.service';
 import { FinanceService } from './finance.service';
 
 const listQuerySchema = z.object({ partyId: z.string().uuid().optional() });
@@ -16,7 +17,7 @@ const issueSchema = z.object({ dueInDays: z.number().int().min(0).max(365).optio
 @Controller('invoices')
 @RequireEntitlement(FEATURE_KEYS.FINANCE)
 export class FinanceController {
-  constructor(private finance: FinanceService) {}
+  constructor(private finance: FinanceService, private idempotency: IdempotencyService) {}
 
   @RequirePermissions(PERMISSIONS.INVOICE_CREATE)
   @Post('draft')
@@ -50,10 +51,12 @@ export class FinanceController {
 
   @RequirePermissions(PERMISSIONS.INVOICE_ISSUE)
   @Post(':id/issue')
-  async issue(@Req() req: any, @Param('id') id: string, @Body() body: unknown) {
+  async issue(@Req() req: any, @Param('id') id: string, @Body() body: unknown, @Headers('idempotency-key') idempotencyKey?: string) {
     const b = validate(issueSchema, body ?? {});
     const { tenantId, userId } = req.ctx;
-    return serialise(await this.finance.issue(tenantId, userId, id, b.dueInDays));
+    return this.idempotency.wrap(tenantId, `invoices.issue.${id}`, idempotencyKey, () =>
+      this.finance.issue(tenantId, userId, id, b.dueInDays).then(serialise),
+    );
   }
 
   @RequirePermissions(PERMISSIONS.INVOICE_READ)

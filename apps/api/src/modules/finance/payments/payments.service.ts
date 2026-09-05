@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../shared/prisma/prisma.service';
 import { AuditService } from '../../../core/audit/audit.service';
+import { PeriodsService } from '../../../shared/periods/periods.service';
 import { penceToGBP } from '../../../shared/money/money';
 
 interface AllocationInput { invoiceId: string; amountPence: number; }
@@ -12,7 +13,7 @@ interface RecordPaymentInput {
 
 @Injectable()
 export class PaymentsService {
-  constructor(private prisma: PrismaService, private audit: AuditService) {}
+  constructor(private prisma: PrismaService, private audit: AuditService, private periods: PeriodsService) {}
 
   // FR-ARC-003/004/005: record a receipt, then allocate it across one or
   // more invoices (fully or partially), with any unallocated remainder held
@@ -23,11 +24,12 @@ export class PaymentsService {
   async record(tenantId: string, userId: string, b: RecordPaymentInput) {
     return this.prisma.forTenant(tenantId, async (tx) => {
       const amount = BigInt(b.amountPence);
+      const receivedDate = b.receivedDate ? new Date(b.receivedDate) : new Date();
+      await this.periods.assertPeriodOpen(tx, tenantId, receivedDate);
       const payment = await tx.payment.create({
         data: {
           tenantId, partyId: b.partyId, method: b.method, reference: b.reference,
-          amount, unallocated: amount,
-          receivedDate: b.receivedDate ? new Date(b.receivedDate) : new Date(),
+          amount, unallocated: amount, receivedDate,
         },
       });
 

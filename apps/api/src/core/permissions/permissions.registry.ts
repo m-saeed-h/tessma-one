@@ -36,6 +36,25 @@ export const PERMISSIONS = {
   APPROVAL_ACT:     'finance.approval.act',
   VAT_SUBMIT:       'finance.vat.submit',
   REPORT_READ:      'finance.report.read',
+  // Finance — accounting periods (FR-SET-011/012)
+  PERIOD_READ:      'finance.period.read',
+  PERIOD_MANAGE:    'finance.period.manage',
+  PERIOD_REOPEN:    'finance.period.reopen',
+  // Finance — manual journals
+  JOURNAL_READ:     'finance.journal.read',
+  JOURNAL_POST:     'finance.journal.post',
+  // Finance — numbering scheme configuration
+  NUMBERING_MANAGE: 'finance.numbering.manage',
+  // Finance — expenses
+  EXPENSE_READ:     'finance.expense.read',
+  EXPENSE_SUBMIT:   'finance.expense.submit',
+  EXPENSE_APPROVE:  'finance.expense.approve',
+  // Finance — accounts payable
+  PURCHASE_INVOICE_READ:   'finance.purchaseinvoice.read',
+  PURCHASE_INVOICE_CREATE: 'finance.purchaseinvoice.create',
+  PURCHASE_INVOICE_APPROVE:'finance.purchaseinvoice.approve',
+  SUPPLIER_PAYMENT_READ:   'finance.supplierpayment.read',
+  SUPPLIER_PAYMENT_RECORD: 'finance.supplierpayment.record',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -54,21 +73,38 @@ export const SYSTEM_ROLES: Record<string, readonly string[]> = {
     P.CREDIT_NOTE_READ, P.CREDIT_NOTE_CREATE,
     P.PAYMENT_READ, P.PAYMENT_RECORD, P.PAYMENT_RELEASE,
     P.APPROVAL_ACT, P.REPORT_READ, P.AUDIT_READ, P.SETTINGS_MANAGE,
+    P.PERIOD_READ, P.PERIOD_MANAGE, P.PERIOD_REOPEN, P.JOURNAL_READ, P.JOURNAL_POST,
+    P.NUMBERING_MANAGE, P.EXPENSE_READ, P.EXPENSE_SUBMIT, P.EXPENSE_APPROVE,
+    P.PURCHASE_INVOICE_READ, P.PURCHASE_INVOICE_CREATE, P.PURCHASE_INVOICE_APPROVE,
+    P.SUPPLIER_PAYMENT_READ, P.SUPPLIER_PAYMENT_RECORD,
   ],
   ACCOUNTANT: [
     P.CUSTOMER_READ, P.SUPPLIER_READ, P.PRODUCT_READ, P.QUOTATION_READ,
     P.INVOICE_READ, P.CREDIT_NOTE_READ,
     P.PAYMENT_READ, P.PAYMENT_RECORD,
     P.VAT_SUBMIT, P.REPORT_READ, P.AUDIT_READ,
+    P.PERIOD_READ, P.PERIOD_MANAGE, P.JOURNAL_READ, P.JOURNAL_POST,
+    P.EXPENSE_READ, P.EXPENSE_APPROVE,
+    P.PURCHASE_INVOICE_READ, P.PURCHASE_INVOICE_CREATE, P.PURCHASE_INVOICE_APPROVE,
+    P.SUPPLIER_PAYMENT_READ, P.SUPPLIER_PAYMENT_RECORD,
   ],
   SALES_USER: [
     P.CUSTOMER_READ, P.CUSTOMER_CREATE, P.PRODUCT_READ,
     P.QUOTATION_READ, P.QUOTATION_CREATE,
     P.INVOICE_READ, P.INVOICE_CREATE, P.INVOICE_SEND,
+    P.EXPENSE_READ, P.EXPENSE_SUBMIT,
+  ],
+  // FR-EXP: "Employee — Submits expenses. Own expenses and claims only" per
+  // the Finance spec's actor table — a role distinct from Sales/Accounts,
+  // scoped to nothing but its own claims (enforced in expenses.service.ts,
+  // not by this permission list alone).
+  EMPLOYEE: [
+    P.EXPENSE_READ, P.EXPENSE_SUBMIT,
   ],
   AUDITOR: [
     P.CUSTOMER_READ, P.SUPPLIER_READ, P.PRODUCT_READ, P.QUOTATION_READ,
     P.INVOICE_READ, P.CREDIT_NOTE_READ, P.PAYMENT_READ,
     P.REPORT_READ, P.AUDIT_READ,
+    P.PERIOD_READ, P.JOURNAL_READ, P.EXPENSE_READ, P.PURCHASE_INVOICE_READ, P.SUPPLIER_PAYMENT_READ,
   ],
 };

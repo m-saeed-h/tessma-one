@@ -25,7 +25,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public
 -- .delete() on these, but Charter §6.2 wants the control "that survives an
 -- application bug": revoke the privilege at the database grant, not just by
 -- convention. INSERT (and SELECT) remain granted; UPDATE/DELETE do not.
-REVOKE UPDATE, DELETE ON "AuditEvent", "LedgerEntry", "ApprovalDecision", "AiUsageEvent" FROM tessma_app;
+REVOKE UPDATE, DELETE ON "AuditEvent", "LedgerEntry", "ApprovalDecision", "AiUsageEvent", "Journal" FROM tessma_app;
 
 -- 1b. Platform catalogue tables (Plan, PlanFeature, Partner): owned by the
 -- Platform Operator, not by any tenant, and not self-service in this slice —
@@ -43,7 +43,8 @@ BEGIN
     'CreditNote','CreditNoteLine','Payment','PaymentAllocation',
     'LedgerEntry','AuditEvent','NumberSequence',
     'Role','RolePermission','UserRole','TenantBranding','TenantSubscription',
-    'TenantFinanceProfile','InvoiceDelivery',
+    'TenantFinanceProfile','InvoiceDelivery','AccountingPeriod','Journal','IdempotencyKey',
+    'Expense','PurchaseInvoice','PurchaseInvoiceLine','SupplierPayment','SupplierPaymentAllocation',
     'Document','Notification','ApprovalRule','ApprovalRequest','ApprovalDecision',
     'AiUsageEvent'
   ]

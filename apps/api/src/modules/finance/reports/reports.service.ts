@@ -108,4 +108,60 @@ export class ReportsService {
       };
     });
   }
+
+  // FR-RPT-002: income and expense accounts' net movement within a date
+  // range. Income accounts run credit-normal (net = credit - debit);
+  // expense accounts run debit-normal (net = debit - credit).
+  async profitAndLoss(tenantId: string, from: Date, to: Date) {
+    return this.prisma.forTenant(tenantId, async (tx) => {
+      const entries = await tx.ledgerEntry.findMany({
+        where: { postedAt: { gte: from, lte: to } },
+        include: { account: true },
+      });
+      const income: Record<string, { name: string; amount: bigint }> = {};
+      const expense: Record<string, { name: string; amount: bigint }> = {};
+      for (const e of entries) {
+        if (e.account.type === 'INCOME') {
+          income[e.account.code] ??= { name: e.account.name, amount: 0n };
+          income[e.account.code].amount += e.credit - e.debit;
+        } else if (e.account.type === 'EXPENSE') {
+          expense[e.account.code] ??= { name: e.account.name, amount: 0n };
+          expense[e.account.code].amount += e.debit - e.credit;
+        }
+      }
+      const totalIncome = Object.values(income).reduce((s, a) => s + a.amount, 0n);
+      const totalExpense = Object.values(expense).reduce((s, a) => s + a.amount, 0n);
+      return { from, to, income, expense, totalIncome, totalExpense, netProfit: totalIncome - totalExpense };
+    });
+  }
+
+  // FR-RPT-003: asset and liability accounts' net balance as of a date.
+  // There is no separate equity/capital account in this chart of accounts
+  // yet (FR-LED-011's year-end close routine, which would post retained
+  // profit into one, is Should/Phase 4) — since the ledger is always
+  // balanced, Assets - Liabilities *is* cumulative retained earnings, so it
+  // is reported as a single calculated line rather than faked as a stored
+  // account.
+  async balanceSheet(tenantId: string, asOf: Date) {
+    return this.prisma.forTenant(tenantId, async (tx) => {
+      const entries = await tx.ledgerEntry.findMany({
+        where: { postedAt: { lte: asOf } },
+        include: { account: true },
+      });
+      const assets: Record<string, { name: string; amount: bigint }> = {};
+      const liabilities: Record<string, { name: string; amount: bigint }> = {};
+      for (const e of entries) {
+        if (e.account.type === 'ASSET') {
+          assets[e.account.code] ??= { name: e.account.name, amount: 0n };
+          assets[e.account.code].amount += e.debit - e.credit;
+        } else if (e.account.type === 'LIABILITY') {
+          liabilities[e.account.code] ??= { name: e.account.name, amount: 0n };
+          liabilities[e.account.code].amount += e.credit - e.debit;
+        }
+      }
+      const totalAssets = Object.values(assets).reduce((s, a) => s + a.amount, 0n);
+      const totalLiabilities = Object.values(liabilities).reduce((s, a) => s + a.amount, 0n);
+      return { asOf, assets, liabilities, totalAssets, totalLiabilities, retainedEarnings: totalAssets - totalLiabilities };
+    });
+  }
 }
