@@ -56,14 +56,11 @@ services:
   web:
     build: ./apps/web
     environment:
-      # Read by the BROWSER — must be reachable from the host, so it's the
-      # published port, not the compose service name.
-      NEXT_PUBLIC_API_URL: http://localhost:4000
-      # Read by the Next.js SERVER (layout.tsx's branding resolution) — must
-      # be reachable from inside the web container, so it's the compose
-      # service name. Deliberately NOT prefixed NEXT_PUBLIC_, so Next reads it
-      # fresh at request time rather than inlining it into the client bundle
-      # at build time (when the compose network doesn't exist yet).
+      # Read by the Next.js SERVER — both for layout.tsx's branding resolution
+      # and for next.config.js's /api/* rewrite proxy (which is also how the
+      # BROWSER reaches the API: through this app's own origin, not directly —
+      # see lib/api.ts). Must be reachable from inside the web container, so
+      # it's the compose service name, not the host-published port.
       API_INTERNAL_URL: http://api:4000
     depends_on:
       - api

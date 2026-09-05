@@ -1,4 +1,9 @@
-const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+// Relative, not the API's own origin: next.config.js rewrites /api/* through
+// to the API so its Set-Cookie is attributed to this app's origin rather than
+// the API's — required for the server-side "am I logged in" check to ever see
+// the session cookie when the API lives on a different domain (see
+// next.config.js's rewrites() comment).
+const BASE = '/api';
 
 // SEC-IAM-03: the access token now lives in an httpOnly cookie set by the API
 // — page script never reads or stores it (no more localStorage.setItem('token', ...)).
