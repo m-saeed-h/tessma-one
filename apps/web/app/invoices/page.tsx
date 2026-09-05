@@ -1,11 +1,11 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, ApiRequestError } from '../../lib/api';
+import { api, ApiRequestError, apiUrl } from '../../lib/api';
 import {
   AuditLine, Button, Cell, DataTable, DetailHead, DetailPanel, EmptyState, ErrorBanner,
-  LedgerPostingBlock, LineItem, LoadingState, Metric, MetricStrip, Row, Select, StatusPill,
-  Tab, Tabs, TotalRow, Totals,
+  FormField, Input, LedgerPostingBlock, LineItem, LoadingState, Metric, MetricStrip, Row,
+  Select, StatusPill, Tab, Tabs, Textarea, TotalRow, Totals,
 } from '../../components/ui';
 import { PageHead } from '../../components/shell';
 
@@ -29,6 +29,11 @@ export default function Invoices() {
   const [tab, setTab] = useState<TabKey>('all');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [composing, setComposing] = useState(false);
+  const [sendTo, setSendTo] = useState('');
+  const [sendCc, setSendCc] = useState('');
+  const [sendSubject, setSendSubject] = useState('');
+  const [sendBody, setSendBody] = useState('');
   const router = useRouter();
 
   async function loadList() {
@@ -49,6 +54,7 @@ export default function Invoices() {
 
   async function selectInvoice(id: string) {
     setSelectedId(id);
+    setComposing(false);
     try {
       setSelected(await api(`/invoices/${id}`));
     } catch (e) {
@@ -106,6 +112,49 @@ export default function Invoices() {
       selectInvoice(selected.id);
     } catch (e) {
       setError(e instanceof ApiRequestError ? e.error.message : 'Failed to cancel invoice');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function duplicate() {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      const copy = await api(`/invoices/${selected.id}/duplicate`, { method: 'POST' });
+      setError('');
+      await loadList();
+      selectInvoice(copy.id);
+    } catch (e) {
+      setError(e instanceof ApiRequestError ? e.error.message : 'Failed to duplicate invoice');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function openCompose() {
+    setSendTo(selected?.party?.email ?? '');
+    setSendCc('');
+    setSendSubject(`Invoice ${selected?.number ?? ''}`.trim());
+    setSendBody(`Please find attached invoice ${selected?.number}, due ${selected?.dueDate ? new Date(selected.dueDate).toLocaleDateString('en-GB') : ''}.`);
+    setComposing(true);
+  }
+
+  async function sendEmail() {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      const to = sendTo.split(',').map((s) => s.trim()).filter(Boolean);
+      const cc = sendCc.split(',').map((s) => s.trim()).filter(Boolean);
+      await api(`/invoices/${selected.id}/send`, {
+        method: 'POST',
+        body: JSON.stringify({ to, cc: cc.length ? cc : undefined, subject: sendSubject, body: sendBody }),
+      });
+      setError('');
+      setComposing(false);
+      selectInvoice(selected.id);
+    } catch (e) {
+      setError(e instanceof ApiRequestError ? e.error.message : 'Failed to send invoice');
     } finally {
       setBusy(false);
     }
@@ -208,6 +257,25 @@ export default function Invoices() {
               <div style={{ padding: '0 var(--s5)', paddingTop: 'var(--s4)', fontWeight: 500, fontSize: 15 }}>
                 {selected.party?.legalName}
               </div>
+              <div style={{ padding: 'var(--s3) var(--s5) 0', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <a className="btn" style={{ textDecoration: 'none' }} href={apiUrl(`/invoices/${selected.id}/pdf`)} target="_blank" rel="noreferrer">Download PDF</a>
+                <Button onClick={duplicate} disabled={busy}>Duplicate</Button>
+                {selected.status !== 'DRAFT' && selected.status !== 'CANCELLED' && (
+                  <Button onClick={openCompose} disabled={busy}>Send to customer</Button>
+                )}
+              </div>
+              {composing && (
+                <div style={{ padding: 'var(--s4) var(--s5)', display: 'grid', gap: 10 }}>
+                  <FormField label="To"><Input value={sendTo} onChange={(e) => setSendTo(e.target.value)} placeholder="customer@example.com" /></FormField>
+                  <FormField label="Cc (optional)"><Input value={sendCc} onChange={(e) => setSendCc(e.target.value)} placeholder="comma-separated" /></FormField>
+                  <FormField label="Subject"><Input value={sendSubject} onChange={(e) => setSendSubject(e.target.value)} /></FormField>
+                  <FormField label="Message"><Textarea value={sendBody} onChange={(e) => setSendBody(e.target.value)} /></FormField>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <Button variant="primary" onClick={sendEmail} disabled={busy || !sendTo.trim()}>Send</Button>
+                    <Button onClick={() => setComposing(false)} disabled={busy}>Cancel</Button>
+                  </div>
+                </div>
+              )}
               <div className="detail-body" style={{ paddingBottom: 'var(--s3)' }}>
                 {selected.lines.map((l: any) => (
                   <LineItem
@@ -243,6 +311,11 @@ export default function Invoices() {
               {selected.status !== 'DRAFT' && !selected.cancelledReason && (
                 <AuditLine>Locked & immutable once issued</AuditLine>
               )}
+              {selected.deliveries?.map((d: any) => (
+                <AuditLine key={d.id}>
+                  {d.status === 'SENT' ? 'Sent' : 'Failed to send'} to {d.to.join(', ')} on {new Date(d.createdAt).toLocaleDateString('en-GB')}
+                </AuditLine>
+              ))}
             </>
           )}
         </DetailPanel>

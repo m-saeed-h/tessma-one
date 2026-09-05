@@ -62,6 +62,14 @@ async function main() {
     data: DEFAULT_CHART_OF_ACCOUNTS.map((a) => ({ tenantId: tenant.id, ...a })),
   });
   await prisma.numberSequence.create({ data: { tenantId: tenant.id, docType: 'INVOICE', next: 1 } });
+  await prisma.tenantFinanceProfile.create({
+    data: {
+      tenantId: tenant.id, legalName: 'Demo Trading Ltd',
+      addressLine1: '1 Finsbury Circus', city: 'London', postcode: 'EC2M 7EA', country: 'GB',
+      vatNumber: 'GB123456789', companyNumber: '01234567',
+      footerText: 'Thank you for your business. Payment is due by the date shown above.',
+    },
+  });
   await prisma.tenantSubscription.create({
     data: { tenantId: tenant.id, planId: planIdByCode['TRIAL'], status: 'TRIALING' },
   });

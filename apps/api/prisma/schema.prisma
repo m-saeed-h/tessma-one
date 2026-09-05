@@ -50,10 +50,32 @@ model Tenant {
   partnerId String?
   createdAt DateTime @default(now())
 
-  partner      Partner?         @relation(fields: [partnerId], references: [id])
-  users        User[]
-  branding     TenantBranding?
-  subscription TenantSubscription?
+  partner       Partner?         @relation(fields: [partnerId], references: [id])
+  users         User[]
+  branding      TenantBranding?
+  subscription  TenantSubscription?
+  financeProfile TenantFinanceProfile?
+}
+
+// FR-SET-007/009/010 (partial): the tenant's own legal/VAT identity, needed
+// to put a legally compliant seller block on an invoice PDF (FR-SIN-009).
+// Everything else in EP-FIN-01 (financial year, accounting basis, period
+// locking, configurable numbering formats) is a materially larger epic and
+// is NOT covered by this model — see README.
+model TenantFinanceProfile {
+  tenantId                String  @id
+  legalName               String?
+  addressLine1            String?
+  addressLine2            String?
+  city                    String?
+  postcode                String?
+  country                 String? @default("GB")
+  vatNumber               String?
+  companyNumber           String?
+  footerText              String?
+  defaultPaymentTermsDays Int     @default(30)
+
+  tenant                  Tenant  @relation(fields: [tenantId], references: [id])
 }
 
 // Tenant-level branding override — the top of the resolution chain
@@ -209,7 +231,10 @@ model CustomerRole {
   id                   String  @id @default(uuid())
   tenantId             String
   partyId              String  @unique
-  paymentTerms         Int     @default(30) // days
+  // Null means "not set for this customer" — falls back to the tenant's own
+  // FR-SET-009 organisation-level default (TenantFinanceProfile), not a
+  // hard-coded 30, so that default is actually reachable. See finance.service.ts's issue().
+  paymentTerms         Int?    // days
   creditLimit          BigInt  @default(0)  // pence, 0 = no limit enforced
   // FR-PTY-011: behaviour on credit-limit breach is tenant configuration —
   // WARN lets the invoice proceed with a flagged response, BLOCK refuses it.
@@ -229,7 +254,7 @@ model SupplierRole {
   id                   String    @id @default(uuid())
   tenantId             String
   partyId              String    @unique
-  paymentTerms         Int       @default(30)
+  paymentTerms         Int?      // days; null means "not set for this supplier"
   bankAccountNameEnc   String?
   bankSortCodeEnc      String?
   bankAccountNumberEnc String?
@@ -310,9 +335,33 @@ model Invoice {
   ledgerEntries LedgerEntry[]
   creditNotes   CreditNote[]
   allocations   PaymentAllocation[]
+  deliveries    InvoiceDelivery[]
 
   @@unique([tenantId, number])
   @@index([tenantId])
+}
+
+// FR-SIN-010/011/012: a record of each time an invoice was emailed to a
+// customer. `status` is SENT|FAILED only — DELIVERED/OPENED/BOUNCED need a
+// real ESP's webhook events and aren't reachable through the dev-mode
+// transport, the same honest gap as SMS/PUSH in notifications.service.ts.
+model InvoiceDelivery {
+  id           String   @id @default(uuid())
+  tenantId     String
+  invoiceId    String
+  sentByUserId String
+  to           String[]
+  cc           String[] @default([])
+  bcc          String[] @default([])
+  subject      String
+  body         String
+  status       String   @default("SENT")
+  createdAt    DateTime @default(now())
+
+  invoice      Invoice  @relation(fields: [invoiceId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, invoiceId])
 }
 
 model InvoiceLine {

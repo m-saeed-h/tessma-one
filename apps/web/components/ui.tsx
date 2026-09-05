@@ -5,7 +5,7 @@
 // (spacing scale, radii, the two brand colours) are the source of truth, and
 // every component here just wears them. A visual change lands once, here,
 // not per-page.
-import type { ButtonHTMLAttributes, HTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react';
+import type { ButtonHTMLAttributes, HTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
 
 export function Button({
   variant = 'default',
@@ -24,6 +24,11 @@ export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
 export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
   const { className = '', ...rest } = props;
   return <select {...rest} className={`field ${className}`} />;
+}
+
+export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const { className = '', ...rest } = props;
+  return <textarea {...rest} className={`field ${className}`} />;
 }
 
 export function FormField({ label, error, children }: { label: string; error?: string; children: ReactNode }) {

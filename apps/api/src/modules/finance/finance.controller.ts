@@ -1,11 +1,12 @@
-import { Body, Controller, Get, Param, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Req, Res, StreamableFile } from '@nestjs/common';
+import type { Response } from 'express';
 import { z } from 'zod';
 import { RequirePermissions } from '../../core/permissions/permissions.decorators';
 import { PERMISSIONS } from '../../core/permissions/permissions.registry';
 import { RequireEntitlement } from '../../core/subscriptions/entitlements.decorators';
 import { FEATURE_KEYS } from '../../core/subscriptions/entitlements.registry';
 import { validate } from '../../shared/validation/validate';
-import { cancelInvoiceSchema, createInvoiceDraftSchema } from '../../shared/validation/schemas';
+import { cancelInvoiceSchema, createInvoiceDraftSchema, sendInvoiceSchema } from '../../shared/validation/schemas';
 import { serialise } from '../../shared/http/serialise';
 import { FinanceService } from './finance.service';
 
@@ -53,6 +54,27 @@ export class FinanceController {
     const b = validate(issueSchema, body ?? {});
     const { tenantId, userId } = req.ctx;
     return serialise(await this.finance.issue(tenantId, userId, id, b.dueInDays));
+  }
+
+  @RequirePermissions(PERMISSIONS.INVOICE_READ)
+  @Get(':id/pdf')
+  async pdf(@Req() req: any, @Param('id') id: string, @Res({ passthrough: true }) res: Response) {
+    const buffer = await this.finance.renderPdf(req.ctx.tenantId, id);
+    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="invoice-${id}.pdf"` });
+    return new StreamableFile(buffer);
+  }
+
+  @RequirePermissions(PERMISSIONS.INVOICE_SEND)
+  @Post(':id/send')
+  async send(@Req() req: any, @Param('id') id: string, @Body() body: unknown) {
+    const b = validate(sendInvoiceSchema, body);
+    return serialise(await this.finance.send(req.ctx.tenantId, req.ctx.userId, id, b));
+  }
+
+  @RequirePermissions(PERMISSIONS.INVOICE_CREATE)
+  @Post(':id/duplicate')
+  async duplicate(@Req() req: any, @Param('id') id: string) {
+    return serialise(await this.finance.duplicate(req.ctx.tenantId, req.ctx.userId, id));
   }
 
   @RequirePermissions(PERMISSIONS.INVOICE_VOID)

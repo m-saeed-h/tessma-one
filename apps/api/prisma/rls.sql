@@ -43,6 +43,7 @@ BEGIN
     'CreditNote','CreditNoteLine','Payment','PaymentAllocation',
     'LedgerEntry','AuditEvent','NumberSequence',
     'Role','RolePermission','UserRole','TenantBranding','TenantSubscription',
+    'TenantFinanceProfile','InvoiceDelivery',
     'Document','Notification','ApprovalRule','ApprovalRequest','ApprovalDecision',
     'AiUsageEvent'
   ]

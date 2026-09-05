@@ -39,6 +39,10 @@ import { PaymentsController } from './modules/finance/payments/payments.controll
 import { PaymentsService } from './modules/finance/payments/payments.service';
 import { ReportsController } from './modules/finance/reports/reports.controller';
 import { ReportsService } from './modules/finance/reports/reports.service';
+import { FinanceSettingsController } from './modules/finance/settings/settings.controller';
+import { FinanceSettingsService } from './modules/finance/settings/settings.service';
+import { InvoicePdfService } from './modules/finance/pdf/invoice-pdf.service';
+import { ConsoleInvoiceEmailProvider } from './modules/finance/pdf/invoice-email.provider';
 
 @Module({
   imports: [JwtModule.register({})],
@@ -58,6 +62,7 @@ import { ReportsService } from './modules/finance/reports/reports.service';
     CreditNotesController,
     PaymentsController,
     ReportsController,
+    FinanceSettingsController,
   ],
   providers: [
     PrismaService,
@@ -79,6 +84,9 @@ import { ReportsService } from './modules/finance/reports/reports.service';
     CreditNotesService,
     PaymentsService,
     ReportsService,
+    FinanceSettingsService,
+    InvoicePdfService,
+    ConsoleInvoiceEmailProvider,
     // Global guards run in registration order, deny by default:
     // 1. AuthGuard      — who are you (token, from cookie or header only)
     // 2. CsrfGuard       — for cookie-authenticated mutations, prove same-origin

@@ -11,6 +11,13 @@ function readCookie(name: string): string | null {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
+// For a plain <a href> (e.g. "Download PDF") — a top-level browser navigation
+// carries the httpOnly session cookie automatically and isn't subject to CORS
+// the way fetch() is, so this doesn't need the api() wrapper's machinery.
+export function apiUrl(path: string): string {
+  return `${BASE}${path}`;
+}
+
 export interface ApiErrorBody {
   code: string;
   message: string;

@@ -84,6 +84,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <NavItem href="/customers">Customers</NavItem>
             <NavItem href="/suppliers">Suppliers</NavItem>
             <NavItem href="/products">Products</NavItem>
+            <NavItem href="/settings">Finance settings</NavItem>
             <NavItem locked>Bills &amp; expenses</NavItem>
             <NavItem locked>Banking</NavItem>
             <NavItem locked>VAT</NavItem>

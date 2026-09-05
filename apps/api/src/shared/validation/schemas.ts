@@ -99,6 +99,30 @@ export const cancelInvoiceSchema = z.object({
   reason: z.string().trim().min(1).max(1000),
 });
 
+// FR-SIN-010: recipient selection, cc, bcc, editable subject and body.
+export const sendInvoiceSchema = z.object({
+  to: z.array(z.string().trim().email()).min(1).max(10),
+  cc: z.array(z.string().trim().email()).max(10).optional(),
+  bcc: z.array(z.string().trim().email()).max(10).optional(),
+  subject: z.string().trim().min(1).max(200),
+  body: z.string().trim().min(1).max(5000),
+});
+
+// FR-SET-007/009/010 (partial): the tenant's own legal/VAT identity used on
+// invoice PDFs, and the org-level default payment terms.
+export const financeProfileSchema = z.object({
+  legalName: z.string().trim().max(200).optional(),
+  addressLine1: z.string().trim().max(200).optional(),
+  addressLine2: z.string().trim().max(200).optional(),
+  city: z.string().trim().max(100).optional(),
+  postcode: z.string().trim().max(20).optional(),
+  country: z.string().trim().length(2).optional(),
+  vatNumber: z.string().trim().max(30).optional(),
+  companyNumber: z.string().trim().max(30).optional(),
+  footerText: z.string().trim().max(1000).optional(),
+  defaultPaymentTermsDays: z.number().int().min(0).max(365).optional(),
+});
+
 export const createQuotationSchema = z.object({
   partyId: z.string().uuid(),
   expiryDate: z.string().datetime().optional(),

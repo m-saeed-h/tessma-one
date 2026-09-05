@@ -32,7 +32,7 @@ export class PartyController {
       });
       const customer = await tx.customerRole.create({
         data: {
-          tenantId, partyId: party.id, paymentTerms: b.paymentTerms ?? 30,
+          tenantId, partyId: party.id, paymentTerms: b.paymentTerms,
           creditLimit: b.creditLimitPence ?? 0,
           creditLimitBehaviour: b.creditLimitBehaviour ?? 'WARN',
         },

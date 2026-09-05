@@ -38,7 +38,7 @@ export class SuppliersService {
       const hasBankDetails = b.bankAccountName && b.bankSortCode && b.bankAccountNumber;
       const supplier = await tx.supplierRole.create({
         data: {
-          tenantId, partyId: party.id, paymentTerms: b.paymentTerms ?? 30,
+          tenantId, partyId: party.id, paymentTerms: b.paymentTerms,
           // SEC-DAT-03: application-level encryption, never plaintext at rest.
           bankAccountNameEnc: b.bankAccountName ? encryptField(b.bankAccountName) : undefined,
           bankSortCodeEnc: b.bankSortCode ? encryptField(b.bankSortCode) : undefined,
