@@ -15,31 +15,36 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <AppShell>
       <Sidebar productName={branding.productName} logoUrl={branding.logoUrl}>
         <NavItem href="/">Dashboard</NavItem>
-        <NavSection>Sales</NavSection>
-        <NavItem href="/quotations">Quotations</NavItem>
-        <NavItem href="/invoices">Invoices</NavItem>
-        <NavItem href="/credit-notes">Credit notes</NavItem>
-        <NavItem href="/payments">Payments</NavItem>
-        <NavItem href="/receivables">Aged receivables</NavItem>
-        <NavSection>Purchases</NavSection>
-        <NavItem href="/bills">Bills</NavItem>
-        <NavItem href="/supplier-payments">Supplier payments</NavItem>
-        <NavItem href="/expenses">Expenses</NavItem>
-        <NavSection>Accounting</NavSection>
-        <NavItem href="/journals">Journals</NavItem>
-        <NavItem href="/periods">Accounting periods</NavItem>
-        <NavItem href="/reports">Reports</NavItem>
-        <NavItem locked>Banking</NavItem>
-        <NavItem locked>VAT</NavItem>
-        <NavSection>Setup</NavSection>
-        <NavItem href="/customers">Customers</NavItem>
-        <NavItem href="/suppliers">Suppliers</NavItem>
-        <NavItem href="/products">Products</NavItem>
-        <NavItem href="/settings">Finance settings</NavItem>
-        <NavItem href="/notifications">Notifications</NavItem>
-        <NavSection>Platform</NavSection>
-        <NavItem locked>CRM</NavItem>
-        <NavItem locked>Projects</NavItem>
+        <NavSection title="Sales">
+          <NavItem href="/quotations">Quotations</NavItem>
+          <NavItem href="/invoices">Invoices</NavItem>
+          <NavItem href="/credit-notes">Credit notes</NavItem>
+          <NavItem href="/payments">Payments</NavItem>
+          <NavItem href="/receivables">Aged receivables</NavItem>
+        </NavSection>
+        <NavSection title="Purchases">
+          <NavItem href="/bills">Bills</NavItem>
+          <NavItem href="/supplier-payments">Supplier payments</NavItem>
+          <NavItem href="/expenses">Expenses</NavItem>
+        </NavSection>
+        <NavSection title="Accounting">
+          <NavItem href="/journals">Journals</NavItem>
+          <NavItem href="/periods">Accounting periods</NavItem>
+          <NavItem href="/reports">Reports</NavItem>
+          <NavItem locked>Banking</NavItem>
+          <NavItem locked>VAT</NavItem>
+        </NavSection>
+        <NavSection title="Setup">
+          <NavItem href="/customers">Customers</NavItem>
+          <NavItem href="/suppliers">Suppliers</NavItem>
+          <NavItem href="/products">Products</NavItem>
+          <NavItem href="/settings">Finance settings</NavItem>
+          <NavItem href="/notifications">Notifications</NavItem>
+        </NavSection>
+        <NavSection title="Platform">
+          <NavItem locked>CRM</NavItem>
+          <NavItem locked>Projects</NavItem>
+        </NavSection>
         <NavItem href="/login">Switch account</NavItem>
       </Sidebar>
       <Main>

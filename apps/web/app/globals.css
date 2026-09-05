@@ -69,6 +69,7 @@ body {
   color: #C7D2DC;
   padding: var(--s5) var(--s3);
   display: flex; flex-direction: column; gap: var(--s2);
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
 }
 .brand { display: flex; align-items: center; gap: 10px; padding: 0 var(--s3) var(--s5) var(--s3); }
 .brand-mark {
@@ -78,10 +79,16 @@ body {
   color: var(--ink); font-weight: 700; font-size: 15px;
 }
 .brand-name { color: #fff; font-weight: 600; font-size: 16px; letter-spacing: -0.2px; }
-.nav-section {
+.nav-section-head {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  background: none; border: none; font: inherit; cursor: pointer;
   font-size: 11px; letter-spacing: 0.06em; color: #63788A;
   padding: var(--s4) var(--s3) var(--s2); font-weight: 600;
 }
+.nav-section-head:hover { color: #8DA0AF; }
+.nav-section-head .chevron { display: inline-block; transition: transform .15s ease; }
+.nav-section-head .chevron.open { transform: rotate(90deg); }
+.nav-section-items { display: flex; flex-direction: column; gap: var(--s2); }
 .nav-item {
   display: flex; align-items: center; gap: 10px;
   padding: 9px var(--s3); border-radius: var(--r-sm);

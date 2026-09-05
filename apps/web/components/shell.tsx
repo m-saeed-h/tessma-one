@@ -2,7 +2,7 @@
 // "one visual language enforced by shared components." Rendered once in
 // layout.tsx; pages only ever render into <main class="work">.
 'use client';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { api } from '../lib/api';
@@ -28,8 +28,17 @@ export function Sidebar({ productName, logoUrl, children }: { productName: strin
   );
 }
 
-export function NavSection({ children }: { children: ReactNode }) {
-  return <div className="nav-section">{children}</div>;
+export function NavSection({ title, children }: { title: string; children: ReactNode }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="nav-section">
+      <button type="button" className="nav-section-head" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+        <span>{title}</span>
+        <span className={`chevron ${open ? 'open' : ''}`}>›</span>
+      </button>
+      {open && <div className="nav-section-items">{children}</div>}
+    </div>
+  );
 }
 
 export function NavItem({ href, locked, children }: { href?: string; locked?: boolean; children: ReactNode }) {
