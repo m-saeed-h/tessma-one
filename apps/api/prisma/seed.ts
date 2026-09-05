@@ -61,7 +61,7 @@ async function main() {
   await prisma.account.createMany({
     data: DEFAULT_CHART_OF_ACCOUNTS.map((a) => ({ tenantId: tenant.id, ...a })),
   });
-  await prisma.numberSequence.create({ data: { tenantId: tenant.id, docType: 'INVOICE', next: 1 } });
+  await prisma.numberSequence.create({ data: { tenantId: tenant.id, docType: 'INVOICE', next: 1, prefix: 'INV' } });
   await prisma.tenantFinanceProfile.create({
     data: {
       tenantId: tenant.id, legalName: 'Demo Trading Ltd',

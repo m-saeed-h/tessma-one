@@ -56,7 +56,7 @@ export class IdentityController {
       await tx.account.createMany({
         data: DEFAULT_CHART_OF_ACCOUNTS.map((a) => ({ tenantId: tenant.id, ...a })),
       });
-      await tx.numberSequence.create({ data: { tenantId: tenant.id, docType: 'INVOICE', next: 1 } });
+      await tx.numberSequence.create({ data: { tenantId: tenant.id, docType: 'INVOICE', next: 1, prefix: 'INV' } });
       await this.entitlements.subscribeTenant(tx, tenant.id, 'TRIAL');
       await this.audit.write(tx, {
         tenantId: tenant.id, userId: u.id, action: 'tenant.registered',
