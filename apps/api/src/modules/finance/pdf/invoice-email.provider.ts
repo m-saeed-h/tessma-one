@@ -31,8 +31,17 @@ export interface InvoiceEmailResult {
   failureReason?: string;
 }
 
+export interface InvoiceEmailProvider {
+  send(req: InvoiceEmailRequest): Promise<InvoiceEmailResult>;
+}
+
+// DI token: app.module.ts binds this to ConsoleInvoiceEmailProvider or
+// ResendInvoiceEmailProvider depending on whether RESEND_API_KEY is set, so
+// finance.service.ts depends on the interface, not a specific transport.
+export const INVOICE_EMAIL_PROVIDER = 'INVOICE_EMAIL_PROVIDER';
+
 @Injectable()
-export class ConsoleInvoiceEmailProvider {
+export class ConsoleInvoiceEmailProvider implements InvoiceEmailProvider {
   private readonly logger = new Logger('InvoiceEmail(dev)');
 
   async send(req: InvoiceEmailRequest): Promise<InvoiceEmailResult> {

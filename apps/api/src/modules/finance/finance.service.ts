@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { AuditService } from '../../core/audit/audit.service';
@@ -8,7 +8,7 @@ import { NumberingService } from '../../shared/numbering/numbering.service';
 import { PeriodsService } from '../../shared/periods/periods.service';
 import { computeLine, penceToGBP } from '../../shared/money/money';
 import { InvoicePdfService } from './pdf/invoice-pdf.service';
-import { ConsoleInvoiceEmailProvider } from './pdf/invoice-email.provider';
+import { INVOICE_EMAIL_PROVIDER, type InvoiceEmailProvider } from './pdf/invoice-email.provider';
 
 interface LineInput { description: string; quantity: number; unitPrice: number; discountPct?: number; vatRatePct?: number; }
 interface DraftInput {
@@ -28,7 +28,7 @@ export class FinanceService {
     private numbering: NumberingService,
     private periods: PeriodsService,
     private pdf: InvoicePdfService,
-    private emailProvider: ConsoleInvoiceEmailProvider,
+    @Inject(INVOICE_EMAIL_PROVIDER) private emailProvider: InvoiceEmailProvider,
   ) {}
 
   // Create an editable DRAFT. No number is allocated yet, nothing is posted.

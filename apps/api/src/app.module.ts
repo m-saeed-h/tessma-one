@@ -42,7 +42,8 @@ import { ReportsService } from './modules/finance/reports/reports.service';
 import { FinanceSettingsController } from './modules/finance/settings/settings.controller';
 import { FinanceSettingsService } from './modules/finance/settings/settings.service';
 import { InvoicePdfService } from './modules/finance/pdf/invoice-pdf.service';
-import { ConsoleInvoiceEmailProvider } from './modules/finance/pdf/invoice-email.provider';
+import { ConsoleInvoiceEmailProvider, INVOICE_EMAIL_PROVIDER } from './modules/finance/pdf/invoice-email.provider';
+import { ResendInvoiceEmailProvider } from './modules/finance/pdf/resend-invoice-email.provider';
 import { PeriodsService } from './shared/periods/periods.service';
 import { PeriodsController } from './modules/finance/periods/periods.controller';
 import { JournalsController } from './modules/finance/journals/journals.controller';
@@ -105,7 +106,11 @@ import { AccountsService } from './modules/finance/accounts/accounts.service';
     ReportsService,
     FinanceSettingsService,
     InvoicePdfService,
-    ConsoleInvoiceEmailProvider,
+    {
+      provide: INVOICE_EMAIL_PROVIDER,
+      useFactory: () =>
+        process.env.RESEND_API_KEY ? new ResendInvoiceEmailProvider() : new ConsoleInvoiceEmailProvider(),
+    },
     PeriodsService,
     JournalsService,
     IdempotencyService,
